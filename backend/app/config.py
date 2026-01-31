@@ -58,7 +58,11 @@ class Settings(BaseSettings):
     r2_public_url: str = ""
 
     # CORS
-    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    cors_origins: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://inmengwi.github.io",
+    ]
 
     @field_validator("cors_origins", mode="before")
     @classmethod
