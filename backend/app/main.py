@@ -6,8 +6,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import close_db, init_db
+from app.database import close_db, init_db, async_session_maker
 from app.api.v1.router import api_router
+from app.seeds import run_seeds
 
 
 @asynccontextmanager
@@ -16,6 +17,11 @@ async def lifespan(app: FastAPI):
     # Startup
     if settings.is_development:
         await init_db()
+
+    # Run seeds (create test user if not exists)
+    async with async_session_maker() as db:
+        await run_seeds(db)
+
     yield
     # Shutdown
     await close_db()
