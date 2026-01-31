@@ -2,17 +2,16 @@
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from passlib.context import CryptContext
 
 from app.models.user import User
 from app.models.tag import Tag, TagType
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from app.services.auth_service import pwd_context
 
 
 async def seed_test_user(db: AsyncSession) -> None:
     """Create test user if not exists."""
     test_email = "test@example.com"
+    test_password = "password!"
 
     # Check if test user exists
     result = await db.execute(
@@ -24,10 +23,10 @@ async def seed_test_user(db: AsyncSession) -> None:
         print(f"Test user already exists: {test_email}")
         return
 
-    # Create test user
+    # Create test user with proper password hashing
     user = User(
         email=test_email,
-        password_hash=pwd_context.hash("password!"),
+        password_hash=pwd_context.hash(test_password),
         name="테스트 사용자",
         is_verified=True,
         is_active=True,
