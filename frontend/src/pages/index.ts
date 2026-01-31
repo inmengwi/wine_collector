@@ -1,0 +1,8 @@
+export { HomePage } from './HomePage';
+export { ScanPage } from './ScanPage';
+export { CellarPage } from './CellarPage';
+export { WineDetailPage } from './WineDetailPage';
+export { RecommendPage } from './RecommendPage';
+export { SettingsPage } from './SettingsPage';
+export { LoginPage } from './LoginPage';
+export { RegisterPage } from './RegisterPage';
