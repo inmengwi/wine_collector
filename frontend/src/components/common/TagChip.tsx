@@ -1,13 +1,15 @@
 import { clsx } from 'clsx';
 import { X } from 'lucide-react';
+import type { Tag } from '@/types';
 
-interface TagChipProps {
-  name: string;
+export interface TagChipProps {
+  name?: string;
   color?: string;
   size?: 'sm' | 'md';
   onRemove?: () => void;
   onClick?: () => void;
   selected?: boolean;
+  tag?: Tag;
 }
 
 export function TagChip({
@@ -17,7 +19,10 @@ export function TagChip({
   onRemove,
   onClick,
   selected = false,
+  tag,
 }: TagChipProps) {
+  const displayName = tag?.name || name || '';
+  const displayColor = tag?.color || color;
   const sizes = {
     sm: 'px-2 py-0.5 text-xs',
     md: 'px-3 py-1 text-sm',
@@ -32,17 +37,17 @@ export function TagChip({
         selected && 'ring-2 ring-offset-1'
       )}
       style={{
-        backgroundColor: `${color}20`,
-        color: color,
-        borderColor: selected ? color : 'transparent',
+        backgroundColor: `${displayColor}20`,
+        color: displayColor,
+        borderColor: selected ? displayColor : 'transparent',
       }}
       onClick={onClick}
     >
       <span
         className="w-2 h-2 rounded-full"
-        style={{ backgroundColor: color }}
+        style={{ backgroundColor: displayColor }}
       />
-      {name}
+      {displayName}
       {onRemove && (
         <button
           onClick={(e) => {

@@ -1,4 +1,4 @@
-import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
+import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
 import { WineTypeIcon, Badge } from '../common';
 import { getWineTypeLabel, formatVintage } from '../../lib/utils';
 import type { ScanResult } from '../../types';

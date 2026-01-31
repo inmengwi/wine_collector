@@ -1,5 +1,5 @@
 import api from './api';
-import type { ApiResponse, PaginatedResponse, RecommendationResult, RecommendationRequest } from '@/types';
+import type { PaginatedResponse, RecommendationResult, RecommendationRequest } from '@/types';
 
 export interface RecommendationHistoryItem {
   id: string;
@@ -11,7 +11,7 @@ export interface RecommendationHistoryItem {
 }
 
 export const recommendationService = {
-  async getRecommendations(data: RecommendationRequest): Promise<ApiResponse<RecommendationResult>> {
+  async getRecommendations(data: RecommendationRequest): Promise<RecommendationResult> {
     const response = await api.post('/recommendations', data);
     return response.data;
   },

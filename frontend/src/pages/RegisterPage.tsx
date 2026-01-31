@@ -21,7 +21,7 @@ export function RegisterPage() {
       setAuth(data.user, data.access_token, data.refresh_token);
       navigate('/', { replace: true });
     },
-    onError: (error: Error) => {
+    onError: () => {
       setError('회원가입에 실패했습니다. 다시 시도해주세요.');
     },
   });

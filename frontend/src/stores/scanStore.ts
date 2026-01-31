@@ -21,6 +21,7 @@ interface ScanState {
   // Actions
   setMode: (mode: ScanMode) => void;
   setScanning: (scanning: boolean) => void;
+  setIsScanning: (scanning: boolean) => void;
   setSingleResult: (result: ScanResult | null) => void;
   setBatchResult: (result: BatchScanResult | null) => void;
   addContinuousResult: (result: ScanResult) => void;
@@ -43,6 +44,8 @@ export const useScanStore = create<ScanState>((set) => ({
   setMode: (mode) => set({ mode }),
 
   setScanning: (isScanning) => set({ isScanning }),
+
+  setIsScanning: (isScanning) => set({ isScanning }),
 
   setSingleResult: (singleResult) => set({ singleResult }),
 
