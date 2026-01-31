@@ -11,7 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useQuery } from '@tanstack/react-query';
 import { Header } from '../components/layout';
-import { Button, Modal, Input, TagChip, ConfirmDialog } from '../components/common';
+import { Button, Modal, TagChip, ConfirmDialog } from '../components/common';
 import { useAuthStore } from '../stores';
 import { tagService } from '../services';
 
