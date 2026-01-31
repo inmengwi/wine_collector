@@ -29,6 +29,17 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/wine_collector"
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def convert_database_url(cls, v):
+        """Convert postgres:// to postgresql+asyncpg:// for async SQLAlchemy."""
+        if isinstance(v, str):
+            if v.startswith("postgres://"):
+                return v.replace("postgres://", "postgresql+asyncpg://", 1)
+            if v.startswith("postgresql://"):
+                return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+
     # JWT Authentication
     jwt_secret_key: str = "your-super-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
