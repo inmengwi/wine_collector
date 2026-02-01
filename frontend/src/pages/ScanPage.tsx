@@ -35,7 +35,7 @@ export function ScanPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedWine, setEditedWine] = useState<ScannedWine | null>(null);
 
-  const { isScanning, setIsScanning } = useScanStore();
+  const { isScanning, setScanning } = useScanStore();
 
   const scanMutation = useMutation({
     mutationFn: async (imageData: string) => {
@@ -43,22 +43,26 @@ export function ScanPage() {
       const res = await fetch(imageData);
       const blob = await res.blob();
       const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' });
-      return scanService.scanWine(file);
+      const response = await scanService.scanSingle(file);
+      return response.data;
     },
     onSuccess: (result) => {
       setScanResult(result);
       setShowCamera(false);
-      setIsScanning(false);
+      setScanning(false);
     },
     onError: (error) => {
       console.error('Scan error:', error);
-      setIsScanning(false);
+      setScanning(false);
       alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
     },
   });
 
   const addWineMutation = useMutation({
-    mutationFn: (request: UserWineCreateRequest) => wineService.createUserWine(request),
+    mutationFn: async (request: UserWineCreateRequest) => {
+      const response = await wineService.createWine(request);
+      return response.data;
+    },
     onSuccess: (result) => {
       navigate(`/wine/${result.id}`);
     },
@@ -69,7 +73,7 @@ export function ScanPage() {
   });
 
   const handleCapture = (imageData: string) => {
-    setIsScanning(true);
+    setScanning(true);
     scanMutation.mutate(imageData);
   };
 
@@ -131,15 +135,15 @@ export function ScanPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsScanning(true);
+    setScanning(true);
     try {
-      const result = await scanService.scanWine(file);
-      setScanResult(result);
+      const response = await scanService.scanSingle(file);
+      setScanResult(response.data);
     } catch (error) {
       console.error('Scan error:', error);
       alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
     } finally {
-      setIsScanning(false);
+      setScanning(false);
     }
   };
 

@@ -21,7 +21,7 @@ import {
   ConfirmDialog,
   WineTypeIcon,
 } from '../components/common';
-import { wineService } from '../services';
+import { wineService, tagService } from '../services';
 import {
   formatDate,
   formatPrice,
@@ -30,6 +30,15 @@ import {
   getDrinkingStatusLabel,
   getDrinkingStatusColor,
 } from '../lib/utils';
+import type { UserWineUpdateRequest } from '../types';
+
+interface EditFormData {
+  purchase_date: string;
+  purchase_price: string;
+  purchase_place: string;
+  personal_note: string;
+  tag_ids: string[];
+}
 
 export function WineDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -39,16 +48,35 @@ export function WineDetailPage() {
   const [showConsumeModal, setShowConsumeModal] = useState(false);
   const [showGiftModal, setShowGiftModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState<EditFormData>({
+    purchase_date: '',
+    purchase_price: '',
+    purchase_place: '',
+    personal_note: '',
+    tag_ids: [],
+  });
 
   const { data: userWine, isLoading, error } = useQuery({
     queryKey: ['user-wine', id],
-    queryFn: () => wineService.getUserWine(id!),
+    queryFn: async () => {
+      const response = await wineService.getWine(id!);
+      return response.data;
+    },
     enabled: !!id,
+  });
+
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: async () => {
+      const response = await tagService.getTags();
+      return response.data;
+    },
   });
 
   const updateQuantityMutation = useMutation({
     mutationFn: ({ action, amount }: { action: 'increase' | 'decrease'; amount: number }) =>
-      wineService.updateQuantity(id!, { action, amount }),
+      wineService.updateWineQuantity(id!, { action, amount }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
     },
@@ -56,7 +84,7 @@ export function WineDetailPage() {
 
   const consumeMutation = useMutation({
     mutationFn: (data: { rating?: number; tasting_note?: string }) =>
-      wineService.updateStatus(id!, { status: 'consumed', ...data }),
+      wineService.updateWineStatus(id!, { status: 'consumed', ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
       setShowConsumeModal(false);
@@ -64,11 +92,61 @@ export function WineDetailPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => wineService.deleteUserWine(id!),
+    mutationFn: () => wineService.deleteWine(id!),
     onSuccess: () => {
       navigate('/cellar', { replace: true });
     },
   });
+
+  const updateWineMutation = useMutation({
+    mutationFn: (data: UserWineUpdateRequest) => wineService.updateWine(id!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
+      setShowEditModal(false);
+    },
+  });
+
+  const handleOpenEditModal = () => {
+    if (userWine) {
+      setEditFormData({
+        purchase_date: userWine.purchase_date || '',
+        purchase_price: userWine.purchase_price?.toString() || '',
+        purchase_place: userWine.purchase_place || '',
+        personal_note: userWine.personal_note || '',
+        tag_ids: userWine.tags.map(t => t.id),
+      });
+      setShowEditModal(true);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    const updateData: UserWineUpdateRequest = {};
+
+    if (editFormData.purchase_date) {
+      updateData.purchase_date = editFormData.purchase_date;
+    }
+    if (editFormData.purchase_price) {
+      updateData.purchase_price = parseFloat(editFormData.purchase_price);
+    }
+    if (editFormData.purchase_place) {
+      updateData.purchase_place = editFormData.purchase_place;
+    }
+    if (editFormData.personal_note) {
+      updateData.personal_note = editFormData.personal_note;
+    }
+    updateData.tag_ids = editFormData.tag_ids;
+
+    updateWineMutation.mutate(updateData);
+  };
+
+  const handleTagToggle = (tagId: string) => {
+    setEditFormData(prev => ({
+      ...prev,
+      tag_ids: prev.tag_ids.includes(tagId)
+        ? prev.tag_ids.filter(id => id !== tagId)
+        : [...prev.tag_ids, tagId],
+    }));
+  };
 
   if (isLoading) {
     return (
@@ -107,7 +185,7 @@ export function WineDetailPage() {
         showBack
         rightAction={
           <button
-            onClick={() => navigate(`/wine/${id}/edit`)}
+            onClick={handleOpenEditModal}
             className="p-2 text-gray-600 hover:text-gray-900"
           >
             <PencilIcon className="h-5 w-5" />
@@ -368,7 +446,7 @@ export function WineDetailPage() {
           <Button
             variant="primary"
             onClick={() => {
-              wineService.updateStatus(id!, { status: 'gifted' }).then(() => {
+              wineService.updateWineStatus(id!, { status: 'gifted' }).then(() => {
                 queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
                 setShowGiftModal(false);
               });
@@ -391,6 +469,117 @@ export function WineDetailPage() {
         variant="danger"
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="와인 정보 수정"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Purchase Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              구매일
+            </label>
+            <input
+              type="date"
+              value={editFormData.purchase_date}
+              onChange={(e) => setEditFormData(prev => ({ ...prev, purchase_date: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+            />
+          </div>
+
+          {/* Purchase Price */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              구매가 (원)
+            </label>
+            <input
+              type="number"
+              value={editFormData.purchase_price}
+              onChange={(e) => setEditFormData(prev => ({ ...prev, purchase_price: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+              placeholder="예: 50000"
+              min="0"
+            />
+          </div>
+
+          {/* Purchase Place */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              구매처
+            </label>
+            <input
+              type="text"
+              value={editFormData.purchase_place}
+              onChange={(e) => setEditFormData(prev => ({ ...prev, purchase_place: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+              placeholder="예: 와인샵, 이마트"
+            />
+          </div>
+
+          {/* Tags */}
+          {tagsData && tagsData.tags.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                태그
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {tagsData.tags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => handleTagToggle(tag.id)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      editFormData.tag_ids.includes(tag.id)
+                        ? 'bg-wine-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    style={editFormData.tag_ids.includes(tag.id) ? { backgroundColor: tag.color } : undefined}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Personal Note */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              메모
+            </label>
+            <textarea
+              value={editFormData.personal_note}
+              onChange={(e) => setEditFormData(prev => ({ ...prev, personal_note: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500 resize-none"
+              rows={3}
+              placeholder="와인에 대한 메모를 남겨보세요"
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowEditModal(false)}
+            >
+              취소
+            </Button>
+            <Button
+              variant="primary"
+              className="flex-1"
+              onClick={handleSaveEdit}
+              isLoading={updateWineMutation.isPending}
+            >
+              저장
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
