@@ -64,10 +64,26 @@ export function ScanPage() {
   const handleConfirm = () => {
     if (!scanResult) return;
 
-    addWineMutation.mutate({
-      scan_id: scanResult.scan_id,
-      quantity: 1,
-    });
+    // If an existing wine was found, use its ID; otherwise send the scanned wine data
+    if (scanResult.existing_wine_id) {
+      addWineMutation.mutate({
+        wine_id: scanResult.existing_wine_id,
+        quantity: 1,
+      });
+    } else {
+      addWineMutation.mutate({
+        wine_overrides: {
+          name: scanResult.wine.name,
+          producer: scanResult.wine.producer,
+          vintage: scanResult.wine.vintage,
+          grape_variety: scanResult.wine.grape_variety,
+          region: scanResult.wine.region,
+          country: scanResult.wine.country,
+          type: scanResult.wine.type,
+        },
+        quantity: 1,
+      });
+    }
   };
 
   const handleRetry = () => {

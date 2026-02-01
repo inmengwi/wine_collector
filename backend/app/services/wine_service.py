@@ -197,11 +197,27 @@ class WineService:
         # Get or create wine
         if data.wine_id:
             wine_id = data.wine_id
+        elif data.wine_overrides:
+            # Create a new Wine record from the provided data
+            wine = Wine(
+                name=data.wine_overrides.name,
+                producer=data.wine_overrides.producer,
+                vintage=data.wine_overrides.vintage,
+                grape_variety=data.wine_overrides.grape_variety,
+                region=data.wine_overrides.region,
+                country=data.wine_overrides.country,
+                appellation=data.wine_overrides.appellation,
+                abv=data.wine_overrides.abv,
+                type=data.wine_overrides.type,
+            )
+            self.db.add(wine)
+            await self.db.flush()
+            wine_id = wine.id
         elif data.scan_id:
-            # TODO: Get wine from scan cache
-            raise NotImplementedError("Scan-based creation not yet implemented")
+            # Scan-based creation requires wine data to be passed via wine_overrides
+            raise ValueError("scan_id requires wine_overrides to be provided")
         else:
-            raise ValueError("Either wine_id or scan_id is required")
+            raise ValueError("Either wine_id or wine_overrides is required")
 
         # Create user wine
         user_wine = UserWine(
