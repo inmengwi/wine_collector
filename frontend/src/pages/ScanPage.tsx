@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import {
@@ -18,6 +18,7 @@ type ScanMode = 'single' | 'batch' | 'continuous';
 
 export function ScanPage() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>('single');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -215,23 +216,22 @@ export function ScanPage() {
             카메라로 스캔하기
           </Button>
 
-          <label className="block">
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full"
-              onClick={() => {}}
-            >
-              <PhotoIcon className="h-5 w-5 mr-2" />
-              갤러리에서 선택하기
-            </Button>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-          </label>
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <PhotoIcon className="h-5 w-5 mr-2" />
+            갤러리에서 선택하기
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
         </div>
 
         {/* Scan Tips */}
