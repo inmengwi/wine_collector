@@ -12,9 +12,19 @@ import { CameraView, ScanResultCard } from '../components/scan';
 import { Button, Loading, Modal } from '../components/common';
 import { scanService, wineService } from '../services';
 import { useScanStore } from '../stores';
-import type { ScanResult, UserWineCreateRequest } from '../types';
+import type { ScanResult, UserWineCreateRequest, ScannedWine, WineType } from '../types';
 
 type ScanMode = 'single' | 'batch' | 'continuous';
+
+const WINE_TYPES: { value: WineType; label: string }[] = [
+  { value: 'red', label: '레드' },
+  { value: 'white', label: '화이트' },
+  { value: 'rose', label: '로제' },
+  { value: 'sparkling', label: '스파클링' },
+  { value: 'dessert', label: '디저트' },
+  { value: 'fortified', label: '주정강화' },
+  { value: 'other', label: '기타' },
+];
 
 export function ScanPage() {
   const navigate = useNavigate();
@@ -23,6 +33,7 @@ export function ScanPage() {
   const [scanMode, setScanMode] = useState<ScanMode>('single');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editedWine, setEditedWine] = useState<ScannedWine | null>(null);
 
   const { isScanning, setIsScanning } = useScanStore();
 
@@ -92,6 +103,30 @@ export function ScanPage() {
     setShowCamera(true);
   };
 
+  const handleOpenEdit = () => {
+    if (scanResult) {
+      setEditedWine({ ...scanResult.wine });
+      setShowEditModal(true);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (scanResult && editedWine) {
+      setScanResult({
+        ...scanResult,
+        wine: editedWine,
+        existing_wine_id: null, // Clear existing wine ID since user edited the data
+      });
+      setShowEditModal(false);
+    }
+  };
+
+  const handleEditFieldChange = (field: keyof ScannedWine, value: string | number | null) => {
+    if (editedWine) {
+      setEditedWine({ ...editedWine, [field]: value });
+    }
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -138,22 +173,144 @@ export function ScanPage() {
           <ScanResultCard
             result={scanResult}
             onConfirm={handleConfirm}
-            onEdit={() => setShowEditModal(true)}
+            onEdit={handleOpenEdit}
             onRetry={handleRetry}
           />
         </div>
 
-        {/* Edit Modal - simplified for now */}
+        {/* Edit Modal */}
         <Modal
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           title="와인 정보 수정"
           size="lg"
         >
-          <p className="text-gray-500">수정 기능은 추후 구현 예정입니다.</p>
-          <div className="mt-4 flex justify-end">
-            <Button onClick={() => setShowEditModal(false)}>확인</Button>
-          </div>
+          {editedWine && (
+            <div className="space-y-4">
+              {/* Wine Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  와인 이름 *
+                </label>
+                <input
+                  type="text"
+                  value={editedWine.name}
+                  onChange={(e) => handleEditFieldChange('name', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+                  required
+                />
+              </div>
+
+              {/* Producer */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  생산자
+                </label>
+                <input
+                  type="text"
+                  value={editedWine.producer || ''}
+                  onChange={(e) => handleEditFieldChange('producer', e.target.value || null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+                />
+              </div>
+
+              {/* Vintage */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  빈티지
+                </label>
+                <input
+                  type="number"
+                  value={editedWine.vintage || ''}
+                  onChange={(e) => handleEditFieldChange('vintage', e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+                  min="1900"
+                  max={new Date().getFullYear()}
+                />
+              </div>
+
+              {/* Wine Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  와인 종류
+                </label>
+                <select
+                  value={editedWine.type}
+                  onChange={(e) => handleEditFieldChange('type', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+                >
+                  {WINE_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Region */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  지역
+                </label>
+                <input
+                  type="text"
+                  value={editedWine.region || ''}
+                  onChange={(e) => handleEditFieldChange('region', e.target.value || null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+                />
+              </div>
+
+              {/* Country */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  국가
+                </label>
+                <input
+                  type="text"
+                  value={editedWine.country || ''}
+                  onChange={(e) => handleEditFieldChange('country', e.target.value || null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+                />
+              </div>
+
+              {/* Grape Variety */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  품종 (쉼표로 구분)
+                </label>
+                <input
+                  type="text"
+                  value={editedWine.grape_variety?.join(', ') || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const varieties = value ? value.split(',').map(v => v.trim()).filter(v => v) : null;
+                    setEditedWine({ ...editedWine, grape_variety: varieties });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+                  placeholder="예: 카베르네 소비뇽, 메를로"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  취소
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
+                  onClick={handleSaveEdit}
+                  disabled={!editedWine.name}
+                >
+                  저장
+                </Button>
+              </div>
+            </div>
+          )}
         </Modal>
       </div>
     );
