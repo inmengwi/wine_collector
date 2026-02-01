@@ -13,11 +13,11 @@ export interface RecommendationHistoryItem {
 export const recommendationService = {
   async getRecommendations(data: RecommendationRequest): Promise<RecommendationResult> {
     const response = await api.post('/recommendations', data);
-    return response.data;
+    return response.data.data;
   },
 
   async getHistory(params: { page?: number; size?: number } = {}): Promise<PaginatedResponse<RecommendationHistoryItem>> {
     const response = await api.get('/recommendations/history', { params });
-    return response.data;
+    return response.data.data;
   },
 };

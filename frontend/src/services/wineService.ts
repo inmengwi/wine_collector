@@ -17,32 +17,32 @@ export interface WineListParams extends PaginationParams, SortParams, WineFilter
 export const wineService = {
   async getWines(params: WineListParams = {}): Promise<PaginatedResponse<UserWineListItem>> {
     const response = await api.get('/wines', { params });
-    return response.data;
+    return response.data.data;
   },
 
   async getUserWines(params: WineListParams = {}): Promise<PaginatedResponse<UserWineListItem>> {
     const response = await api.get('/wines', { params });
-    return response.data;
+    return response.data.data;
   },
 
   async getWine(id: string): Promise<UserWine> {
     const response = await api.get(`/wines/${id}`);
-    return response.data;
+    return response.data.data;
   },
 
   async getUserWine(id: string): Promise<UserWine> {
     const response = await api.get(`/wines/${id}`);
-    return response.data;
+    return response.data.data;
   },
 
   async createWine(data: UserWineCreateRequest): Promise<UserWine> {
     const response = await api.post('/wines', data);
-    return response.data;
+    return response.data.data;
   },
 
   async createUserWine(data: UserWineCreateRequest): Promise<UserWine> {
     const response = await api.post('/wines', data);
-    return response.data;
+    return response.data.data;
   },
 
   async createWinesBatch(data: {
@@ -52,12 +52,12 @@ export const wineService = {
     common_purchase_date?: string;
   }): Promise<{ created_count: number; total_bottles: number; user_wines: UserWine[] }> {
     const response = await api.post('/wines/batch', data);
-    return response.data;
+    return response.data.data;
   },
 
   async updateWine(id: string, data: UserWineUpdateRequest): Promise<UserWine> {
     const response = await api.patch(`/wines/${id}`, data);
-    return response.data;
+    return response.data.data;
   },
 
   async updateWineStatus(
@@ -65,7 +65,7 @@ export const wineService = {
     data: WineStatusUpdateRequest
   ): Promise<{ id: string; quantity: number; status: string; consumed_count: number }> {
     const response = await api.patch(`/wines/${id}/status`, data);
-    return response.data;
+    return response.data.data;
   },
 
   async updateStatus(
@@ -73,7 +73,7 @@ export const wineService = {
     data: WineStatusUpdateRequest
   ): Promise<{ id: string; quantity: number; status: string; consumed_count: number }> {
     const response = await api.patch(`/wines/${id}/status`, data);
-    return response.data;
+    return response.data.data;
   },
 
   async updateWineQuantity(
@@ -81,7 +81,7 @@ export const wineService = {
     data: WineQuantityUpdateRequest
   ): Promise<{ id: string; previous_quantity: number; current_quantity: number }> {
     const response = await api.patch(`/wines/${id}/quantity`, data);
-    return response.data;
+    return response.data.data;
   },
 
   async updateQuantity(
@@ -89,7 +89,7 @@ export const wineService = {
     data: WineQuantityUpdateRequest
   ): Promise<{ id: string; previous_quantity: number; current_quantity: number }> {
     const response = await api.patch(`/wines/${id}/quantity`, data);
-    return response.data;
+    return response.data.data;
   },
 
   async deleteWine(id: string): Promise<void> {
