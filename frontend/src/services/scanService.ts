@@ -24,7 +24,7 @@ export const scanService = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 
   async scanWine(imageFile: File): Promise<ScanResult> {
@@ -36,7 +36,7 @@ export const scanService = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 
   async scanBatch(imageFile: File): Promise<BatchScanResult> {
@@ -48,7 +48,7 @@ export const scanService = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 
   async checkDuplicate(imageFile: File): Promise<DuplicateCheckResult> {
@@ -60,6 +60,6 @@ export const scanService = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 };
