@@ -69,9 +69,13 @@ def create_application() -> FastAPI:
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         """Handle all unhandled exceptions with JSON logging."""
+        import sys
+        # Use sys.exc_info() to get proper traceback tuple
         logger.error(
-            "Unhandled exception",
-            exc_info=exc,
+            "Unhandled exception: %s: %s",
+            type(exc).__name__,
+            str(exc),
+            exc_info=sys.exc_info(),
             extra={
                 "request_id": request.headers.get("x-request-id"),
                 "method": request.method,
