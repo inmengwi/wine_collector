@@ -43,8 +43,7 @@ export function ScanPage() {
       const res = await fetch(imageData);
       const blob = await res.blob();
       const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' });
-      const response = await scanService.scanSingle(file);
-      return response.data;
+      return scanService.scanSingle(file);
     },
     onSuccess: (result) => {
       setScanResult(result);
@@ -59,10 +58,7 @@ export function ScanPage() {
   });
 
   const addWineMutation = useMutation({
-    mutationFn: async (request: UserWineCreateRequest) => {
-      const response = await wineService.createWine(request);
-      return response.data;
-    },
+    mutationFn: (request: UserWineCreateRequest) => wineService.createWine(request),
     onSuccess: (result) => {
       navigate(`/wine/${result.id}`);
     },
@@ -137,8 +133,8 @@ export function ScanPage() {
 
     setScanning(true);
     try {
-      const response = await scanService.scanSingle(file);
-      setScanResult(response.data);
+      const result = await scanService.scanSingle(file);
+      setScanResult(result);
     } catch (error) {
       console.error('Scan error:', error);
       alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');

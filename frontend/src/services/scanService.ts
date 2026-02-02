@@ -1,8 +1,8 @@
 import api from './api';
-import type { ApiResponse, ScanResult, BatchScanResult } from '@/types';
+import type { ScanResult, BatchScanResult } from '@/types';
 
 export const scanService = {
-  async scanSingle(imageFile: File): Promise<ApiResponse<ScanResult>> {
+  async scanSingle(imageFile: File): Promise<ScanResult> {
     const formData = new FormData();
     formData.append('image', imageFile);
 
@@ -11,10 +11,10 @@ export const scanService = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 
-  async scanBatch(imageFile: File): Promise<ApiResponse<BatchScanResult>> {
+  async scanBatch(imageFile: File): Promise<BatchScanResult> {
     const formData = new FormData();
     formData.append('image', imageFile);
 
@@ -23,10 +23,10 @@ export const scanService = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 
-  async checkDuplicate(imageFile: File): Promise<ApiResponse<{
+  async checkDuplicate(imageFile: File): Promise<{
     wine: { name: string; producer: string | null; vintage: number | null; type: string };
     is_owned: boolean;
     owned_info: {
@@ -37,7 +37,7 @@ export const scanService = {
       purchase_date: string | null;
     } | null;
     recommendation: string | null;
-  }>> {
+  }> {
     const formData = new FormData();
     formData.append('image', imageFile);
 
@@ -46,6 +46,6 @@ export const scanService = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 };
