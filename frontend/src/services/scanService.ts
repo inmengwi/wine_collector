@@ -28,15 +28,7 @@ export const scanService = {
   },
 
   async scanWine(imageFile: File): Promise<ScanResult> {
-    const formData = new FormData();
-    formData.append('image', imageFile);
-
-    const response = await api.post('/scan', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data.data;
+    return this.scanSingle(imageFile);
   },
 
   async scanBatch(imageFile: File): Promise<BatchScanResult> {

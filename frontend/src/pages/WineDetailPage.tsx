@@ -30,7 +30,7 @@ import {
   getDrinkingStatusLabel,
   getDrinkingStatusColor,
 } from '../lib/utils';
-import type { UserWineUpdateRequest } from '../types';
+import type { UserWineUpdateRequest, Tag } from '../types';
 
 interface EditFormData {
   purchase_date: string;
@@ -59,19 +59,13 @@ export function WineDetailPage() {
 
   const { data: userWine, isLoading, error } = useQuery({
     queryKey: ['user-wine', id],
-    queryFn: async () => {
-      const response = await wineService.getWine(id!);
-      return response.data;
-    },
+    queryFn: () => wineService.getWine(id!),
     enabled: !!id,
   });
 
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
-    queryFn: async () => {
-      const response = await tagService.getTags();
-      return response.data;
-    },
+    queryFn: () => tagService.getTags(),
   });
 
   const updateQuantityMutation = useMutation({
@@ -113,7 +107,7 @@ export function WineDetailPage() {
         purchase_price: userWine.purchase_price?.toString() || '',
         purchase_place: userWine.purchase_place || '',
         personal_note: userWine.personal_note || '',
-        tag_ids: userWine.tags.map(t => t.id),
+        tag_ids: userWine.tags.map((t: Tag) => t.id),
       });
       setShowEditModal(true);
     }
@@ -325,7 +319,7 @@ export function WineDetailPage() {
             <div className="bg-white rounded-xl p-4">
               <h2 className="text-sm font-medium text-gray-500 mb-3">음식 페어링</h2>
               <div className="flex flex-wrap gap-2">
-                {wine.food_pairing.map((food, idx) => (
+                {wine.food_pairing.map((food: string, idx: number) => (
                   <Badge key={idx} variant="default">{food}</Badge>
                 ))}
               </div>
@@ -337,7 +331,7 @@ export function WineDetailPage() {
             <div className="bg-white rounded-xl p-4">
               <h2 className="text-sm font-medium text-gray-500 mb-3">향과 맛</h2>
               <div className="flex flex-wrap gap-2">
-                {wine.flavor_notes.map((note, idx) => (
+                {wine.flavor_notes.map((note: string, idx: number) => (
                   <Badge key={idx} variant="wine">{note}</Badge>
                 ))}
               </div>
@@ -527,7 +521,7 @@ export function WineDetailPage() {
                 태그
               </label>
               <div className="flex flex-wrap gap-2">
-                {tagsData.tags.map((tag) => (
+                {tagsData.tags.map((tag: Tag) => (
                   <button
                     key={tag.id}
                     type="button"
