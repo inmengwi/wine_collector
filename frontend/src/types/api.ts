@@ -33,10 +33,8 @@ export interface PaginatedData<T> {
 }
 
 export interface PaginatedResponse<T> {
-  success: boolean;
-  data: PaginatedData<T>;
-  message: string | null;
-  timestamp: string;
+  items: T[];
+  pagination: PaginationMeta;
 }
 
 // Query params

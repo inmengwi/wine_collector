@@ -12,14 +12,16 @@ interface AuthState {
   // Actions
   setUser: (user: User) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
+  setAuth: (user: User, accessToken: string, refreshToken: string) => void;
   login: (user: User, accessToken: string, refreshToken: string) => void;
   logout: () => void;
   setLoading: (loading: boolean) => void;
+  checkAuth: () => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
@@ -36,6 +38,15 @@ export const useAuthStore = create<AuthState>()(
         set({
           accessToken,
           refreshToken,
+        }),
+
+      setAuth: (user, accessToken, refreshToken) =>
+        set({
+          user,
+          accessToken,
+          refreshToken,
+          isAuthenticated: true,
+          isLoading: false,
         }),
 
       login: (user, accessToken, refreshToken) =>
@@ -60,12 +71,23 @@ export const useAuthStore = create<AuthState>()(
         set({
           isLoading: loading,
         }),
+
+      checkAuth: () => {
+        const state = get();
+        if (state.accessToken) {
+          set({ isLoading: false, isAuthenticated: true });
+          return true;
+        }
+        set({ isLoading: false, isAuthenticated: false });
+        return false;
+      },
     }),
     {
       name: 'wine-collector-auth',
       partialize: (state) => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
+        user: state.user,
       }),
     }
   )

@@ -10,9 +10,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { Header } from '../components/layout';
 import { WineCard, WineListItem, WineFilter } from '../components/wine';
-import { Loading, EmptyState, Input } from '../components/common';
+import { Loading, EmptyState } from '../components/common';
 import { wineService, tagService } from '../services';
-import type { WineFilterParams, Tag } from '../types';
+import type { WineFilterParams } from '../types';
 
 type ViewMode = 'grid' | 'list';
 

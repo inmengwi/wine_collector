@@ -2,10 +2,11 @@ import { Wine } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { WineType } from '@/types';
 
-interface WineTypeIconProps {
+export interface WineTypeIconProps {
   type: WineType;
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
+  className?: string;
 }
 
 const wineTypeConfig: Record<WineType, { color: string; bgColor: string; label: string }> = {
@@ -18,7 +19,7 @@ const wineTypeConfig: Record<WineType, { color: string; bgColor: string; label: 
   other: { color: '#6B7280', bgColor: '#F3F4F6', label: '기타' },
 };
 
-export function WineTypeIcon({ type, size = 'md', showLabel = false }: WineTypeIconProps) {
+export function WineTypeIcon({ type, size = 'md', showLabel = false, className }: WineTypeIconProps) {
   const config = wineTypeConfig[type] || wineTypeConfig.other;
 
   const sizes = {
@@ -28,7 +29,7 @@ export function WineTypeIcon({ type, size = 'md', showLabel = false }: WineTypeI
   };
 
   return (
-    <div className="inline-flex items-center gap-1.5">
+    <div className={clsx('inline-flex items-center gap-1.5', className)}>
       <div
         className={clsx(
           'flex items-center justify-center rounded-full',

@@ -22,8 +22,7 @@ export const tagService = {
     return response.data.data;
   },
 
-  async reorderTags(type: TagType, order: string[]): Promise<null> {
-    const response = await api.put('/tags/reorder', { type, order });
-    return response.data.data;
+  async reorderTags(type: TagType, order: string[]): Promise<void> {
+    await api.put('/tags/reorder', { type, order });
   },
 };

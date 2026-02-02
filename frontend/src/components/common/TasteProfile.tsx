@@ -52,12 +52,17 @@ interface TasteProfileProps {
 }
 
 export function TasteProfile({ body, tannin, acidity, sweetness }: TasteProfileProps) {
-  const profiles = [
+  const allProfiles = [
     { label: '바디', value: body, color: '#722F37' },
     { label: '탄닌', value: tannin, color: '#8B4513' },
     { label: '산도', value: acidity, color: '#DAA520' },
     { label: '당도', value: sweetness, color: '#E57B8C' },
-  ].filter((p) => p.value !== null && p.value !== undefined);
+  ];
+
+  const profiles = allProfiles.filter(
+    (p): p is { label: string; value: number; color: string } =>
+      p.value !== null && p.value !== undefined
+  );
 
   if (profiles.length === 0) {
     return null;

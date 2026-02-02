@@ -20,14 +20,26 @@ export const wineService = {
     return response.data.data;
   },
 
+  async getUserWines(params: WineListParams = {}): Promise<PaginatedData<UserWineListItem>> {
+    return this.getWines(params);
+  },
+
   async getWine(id: string): Promise<UserWine> {
     const response = await api.get(`/wines/${id}`);
     return response.data.data;
   },
 
+  async getUserWine(id: string): Promise<UserWine> {
+    return this.getWine(id);
+  },
+
   async createWine(data: UserWineCreateRequest): Promise<UserWine> {
     const response = await api.post('/wines', data);
     return response.data.data;
+  },
+
+  async createUserWine(data: UserWineCreateRequest): Promise<UserWine> {
+    return this.createWine(data);
   },
 
   async createWinesBatch(data: {
@@ -53,6 +65,13 @@ export const wineService = {
     return response.data.data;
   },
 
+  async updateStatus(
+    id: string,
+    data: WineStatusUpdateRequest
+  ): Promise<{ id: string; quantity: number; status: string; consumed_count: number }> {
+    return this.updateWineStatus(id, data);
+  },
+
   async updateWineQuantity(
     id: string,
     data: WineQuantityUpdateRequest
@@ -61,8 +80,18 @@ export const wineService = {
     return response.data.data;
   },
 
-  async deleteWine(id: string): Promise<null> {
-    const response = await api.delete(`/wines/${id}`);
-    return response.data.data;
+  async updateQuantity(
+    id: string,
+    data: WineQuantityUpdateRequest
+  ): Promise<{ id: string; previous_quantity: number; current_quantity: number }> {
+    return this.updateWineQuantity(id, data);
+  },
+
+  async deleteWine(id: string): Promise<void> {
+    await api.delete(`/wines/${id}`);
+  },
+
+  async deleteUserWine(id: string): Promise<void> {
+    return this.deleteWine(id);
   },
 };

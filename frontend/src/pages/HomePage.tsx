@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -9,8 +8,8 @@ import {
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { Header } from '../components/layout';
-import { WineCard, WineListItem } from '../components/wine';
-import { Loading, EmptyState, Badge } from '../components/common';
+import { WineListItem } from '../components/wine';
+import { Loading, EmptyState } from '../components/common';
 import { dashboardService, wineService } from '../services';
 import { useAuthStore } from '../stores';
 
