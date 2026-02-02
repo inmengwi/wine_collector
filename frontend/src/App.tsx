@@ -137,7 +137,7 @@ function AppRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename="/wine_collector">
         <div className="min-h-screen bg-gray-50">
           <AppRoutes />
         </div>
