@@ -209,6 +209,11 @@ export function WineDetailPage() {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
+                {userWine.label_number && (
+                  <span className="px-2 py-1 bg-wine-100 text-wine-800 text-sm font-mono font-semibold rounded">
+                    {userWine.label_number}
+                  </span>
+                )}
                 <Badge variant="wine">{getWineTypeLabel(wine.type)}</Badge>
                 {drinking_status && (
                   <Badge variant={statusVariant}>

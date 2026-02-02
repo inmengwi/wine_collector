@@ -40,9 +40,16 @@ export function WineCard({ wine, showPrice = false }: WineCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-gray-900 truncate">
-                {wine.wine.name}
-              </h3>
+              <div className="flex items-center gap-2">
+                {wine.label_number && (
+                  <span className="flex-shrink-0 px-1.5 py-0.5 bg-wine-100 text-wine-800 text-xs font-mono font-medium rounded">
+                    {wine.label_number}
+                  </span>
+                )}
+                <h3 className="font-medium text-gray-900 truncate">
+                  {wine.wine.name}
+                </h3>
+              </div>
               <p className="text-sm text-gray-500 truncate">
                 {wine.wine.producer}
               </p>
