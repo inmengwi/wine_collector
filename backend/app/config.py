@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
 
+    # Logging
+    log_level: str = "INFO"
+    log_json: bool = True  # Use JSON format for logs
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000
