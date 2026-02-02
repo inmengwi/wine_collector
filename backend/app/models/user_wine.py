@@ -65,6 +65,9 @@ class UserWine(Base):
     # Original scan image
     original_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # Label number for easy identification (e.g., "WC-001")
+    label_number: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

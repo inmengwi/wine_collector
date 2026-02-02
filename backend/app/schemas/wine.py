@@ -159,6 +159,7 @@ class UserWineResponse(BaseModel):
     personal_note: str | None = None
     personal_rating: int | None = None
     original_image_url: str | None = None
+    label_number: str | None = None  # Label number for easy identification (e.g., "WC-001")
     created_at: datetime
     updated_at: datetime
     wine: WineResponse
@@ -176,6 +177,7 @@ class UserWineListResponse(BaseModel):
     status: WineStatus
     purchase_date: date | None = None
     purchase_price: Decimal | None = None
+    label_number: str | None = None
     created_at: datetime
     wine: WineResponse
     tags: list[TagInWine] = []

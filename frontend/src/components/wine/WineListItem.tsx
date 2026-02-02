@@ -26,6 +26,11 @@ export function WineListItem({ wine, onClick }: WineListItemProps) {
       {/* Wine Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
+          {wine.label_number && (
+            <span className="flex-shrink-0 px-1.5 py-0.5 bg-wine-100 text-wine-800 text-xs font-mono font-medium rounded">
+              {wine.label_number}
+            </span>
+          )}
           <h3 className="font-medium text-gray-900 truncate">
             {wine.wine.name}
           </h3>

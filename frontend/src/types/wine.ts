@@ -42,6 +42,8 @@ export interface Tag {
   type: TagType;
   color: string;
   sort_order: number;
+  abbreviation: string | null;
+  next_sequence: number;
   wine_count: number;
   created_at: string;
 }
@@ -56,6 +58,7 @@ export interface UserWine {
   personal_note: string | null;
   personal_rating: number | null;
   original_image_url: string | null;
+  label_number: string | null;
   created_at: string;
   updated_at: string;
   wine: Wine;
@@ -69,6 +72,7 @@ export interface UserWineListItem {
   status: WineStatus;
   purchase_date: string | null;
   purchase_price: number | null;
+  label_number: string | null;
   created_at: string;
   wine: Wine;
   tags: Tag[];
@@ -228,11 +232,13 @@ export interface TagCreateRequest {
   name: string;
   type: TagType;
   color?: string;
+  abbreviation?: string;
 }
 
 export interface TagUpdateRequest {
   name?: string;
   color?: string;
+  abbreviation?: string;
 }
 
 export interface TagListResponse {
