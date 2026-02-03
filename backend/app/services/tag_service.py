@@ -51,8 +51,6 @@ class TagService:
                     type=TagType(tag.type),
                     color=tag.color,
                     sort_order=tag.sort_order,
-                    abbreviation=tag.abbreviation,
-                    next_sequence=tag.next_sequence,
                     wine_count=wine_count,
                     created_at=tag.created_at,
                 )
@@ -97,7 +95,6 @@ class TagService:
             type=data.type.value,
             color=data.color,
             sort_order=max_order + 1,
-            abbreviation=data.abbreviation,
         )
         self.db.add(tag)
         await self.db.commit()
@@ -109,8 +106,6 @@ class TagService:
             type=TagType(tag.type),
             color=tag.color,
             sort_order=tag.sort_order,
-            abbreviation=tag.abbreviation,
-            next_sequence=tag.next_sequence,
             wine_count=0,
             created_at=tag.created_at,
         )
@@ -136,8 +131,6 @@ class TagService:
             tag.name = data.name
         if data.color is not None:
             tag.color = data.color
-        if data.abbreviation is not None:
-            tag.abbreviation = data.abbreviation
 
         await self.db.commit()
         await self.db.refresh(tag)
@@ -154,8 +147,6 @@ class TagService:
             type=TagType(tag.type),
             color=tag.color,
             sort_order=tag.sort_order,
-            abbreviation=tag.abbreviation,
-            next_sequence=tag.next_sequence,
             wine_count=wine_count,
             created_at=tag.created_at,
         )

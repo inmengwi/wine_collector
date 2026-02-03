@@ -42,8 +42,6 @@ export interface Tag {
   type: TagType;
   color: string;
   sort_order: number;
-  abbreviation: string | null;
-  next_sequence: number;
   wine_count: number;
   created_at: string;
 }
@@ -232,13 +230,11 @@ export interface TagCreateRequest {
   name: string;
   type: TagType;
   color?: string;
-  abbreviation?: string;
 }
 
 export interface TagUpdateRequest {
   name?: string;
   color?: string;
-  abbreviation?: string;
 }
 
 export interface TagListResponse {
