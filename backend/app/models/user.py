@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String, Text, ForeignKey
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -33,6 +33,7 @@ class User(Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    next_label_sequence: Mapped[int] = mapped_column(Integer, default=1)
 
     last_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

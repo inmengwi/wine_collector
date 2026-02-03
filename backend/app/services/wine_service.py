@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.models.wine import Wine, WineType
 from app.models.user_wine import UserWine, WineStatus
 from app.models.tag import Tag, UserWineTag
+from app.models.user import User
 from app.schemas.wine import (
     UserWineCreate,
     UserWineBatchCreate,
@@ -194,29 +195,24 @@ class WineService:
             "drinking_status": self._get_drinking_status(user_wine.wine),
         }
 
-    async def _generate_label_number(self, tag_ids: list[UUID] | None) -> tuple[str | None, Tag | None]:
-        """Generate label number from first cellar tag with abbreviation."""
-        if not tag_ids:
-            return None, None
-
-        # Find first cellar tag with abbreviation
-        from app.models.tag import TagType
+    async def _generate_label_number(self, user_id: UUID) -> str:
+        """Generate label number in YY-N format (year suffix + user sequence)."""
+        # Get user to increment sequence
         result = await self.db.execute(
-            select(Tag).where(
-                Tag.id.in_(tag_ids),
-                Tag.type == TagType.CELLAR.value,
-                Tag.abbreviation.isnot(None),
-                Tag.deleted_at.is_(None),
-            ).order_by(Tag.sort_order)
+            select(User).where(User.id == user_id)
         )
-        cellar_tag = result.scalar()
+        user = result.scalar_one()
 
-        if not cellar_tag or not cellar_tag.abbreviation:
-            return None, None
+        # Get year suffix (last 2 digits)
+        year_suffix = datetime.now().year % 100
 
-        # Generate label number: ABBR-XXX (3 digits with leading zeros)
-        label_number = f"{cellar_tag.abbreviation}-{cellar_tag.next_sequence:03d}"
-        return label_number, cellar_tag
+        # Generate label number: YY-N
+        label_number = f"{year_suffix}-{user.next_label_sequence}"
+
+        # Increment user's sequence
+        user.next_label_sequence += 1
+
+        return label_number
 
     async def create_user_wine(self, user_id: UUID, data: UserWineCreate) -> dict:
         """Create a new user wine entry."""
@@ -245,8 +241,8 @@ class WineService:
         else:
             raise ValueError("Either wine_id or wine_overrides is required")
 
-        # Generate label number from cellar tag
-        label_number, cellar_tag = await self._generate_label_number(data.tag_ids)
+        # Generate label number automatically
+        label_number = await self._generate_label_number(user_id)
 
         # Create user wine
         user_wine = UserWine(
@@ -261,10 +257,6 @@ class WineService:
         )
         self.db.add(user_wine)
         await self.db.flush()
-
-        # Increment tag's next_sequence if label was generated
-        if cellar_tag:
-            cellar_tag.next_sequence += 1
 
         # Add tags
         if data.tag_ids:
@@ -316,14 +308,6 @@ class WineService:
             for tag_id in data.tag_ids:
                 tag_link = UserWineTag(user_wine_id=user_wine_id, tag_id=tag_id)
                 self.db.add(tag_link)
-
-            # Generate label_number if not exists and cellar tag with abbreviation is added
-            if not user_wine.label_number:
-                label_number, cellar_tag = await self._generate_label_number(data.tag_ids)
-                if label_number:
-                    user_wine.label_number = label_number
-                    if cellar_tag:
-                        cellar_tag.next_sequence += 1
 
         await self.db.commit()
 

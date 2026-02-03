@@ -230,18 +230,13 @@ export function ScanPage() {
                       }}
                     >
                       {tag.name}
-                      {tag.abbreviation && (
-                        <span className="ml-1 opacity-75">({tag.abbreviation})</span>
-                      )}
                     </button>
                   );
                 })}
               </div>
-              {selectedTagIds.length > 0 && cellarTags.some(t => selectedTagIds.includes(t.id) && t.abbreviation) && (
-                <p className="mt-2 text-xs text-gray-500">
-                  견출지 번호가 자동으로 생성됩니다
-                </p>
-              )}
+              <p className="mt-2 text-xs text-gray-500">
+                와인 등록 시 견출지 번호가 자동으로 생성됩니다
+              </p>
             </div>
           )}
         </div>
