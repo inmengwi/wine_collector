@@ -20,7 +20,6 @@ interface TagFormData {
   name: string;
   type: TagType;
   color: string;
-  abbreviation: string;
 }
 
 const DEFAULT_COLORS = ['#DC2626', '#EA580C', '#D97706', '#65A30D', '#0891B2', '#2563EB', '#7C3AED', '#DB2777'];
@@ -36,7 +35,6 @@ export function SettingsPage() {
     name: '',
     type: 'cellar',
     color: DEFAULT_COLORS[0],
-    abbreviation: '',
   });
 
   const { data: tagsData } = useQuery({
@@ -49,12 +47,12 @@ export function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       setShowCreateTagModal(false);
-      setTagFormData({ name: '', type: 'cellar', color: DEFAULT_COLORS[0], abbreviation: '' });
+      setTagFormData({ name: '', type: 'cellar', color: DEFAULT_COLORS[0] });
     },
   });
 
   const handleOpenCreateTag = (type: TagType) => {
-    setTagFormData({ name: '', type, color: DEFAULT_COLORS[0], abbreviation: '' });
+    setTagFormData({ name: '', type, color: DEFAULT_COLORS[0] });
     setShowCreateTagModal(true);
   };
 
@@ -65,9 +63,6 @@ export function SettingsPage() {
       type: tagFormData.type,
       color: tagFormData.color,
     };
-    if (tagFormData.type === 'cellar' && tagFormData.abbreviation.trim()) {
-      request.abbreviation = tagFormData.abbreviation.trim().toUpperCase();
-    }
     createTagMutation.mutate(request);
   };
 
@@ -181,12 +176,7 @@ export function SettingsPage() {
               {tagsData?.tags
                 .filter((t) => t.type === 'cellar')
                 .map((tag) => (
-                  <div key={tag.id} className="flex items-center gap-1">
-                    <TagChip tag={tag} />
-                    {tag.abbreviation && (
-                      <span className="text-xs text-gray-500 font-mono">({tag.abbreviation})</span>
-                    )}
-                  </div>
+                  <TagChip key={tag.id} tag={tag} />
                 ))}
               <button
                 onClick={() => handleOpenCreateTag('cellar')}
@@ -274,26 +264,6 @@ export function SettingsPage() {
             />
           </div>
 
-          {/* Abbreviation (only for cellar type) */}
-          {tagFormData.type === 'cellar' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                약자 (견출지용)
-              </label>
-              <input
-                type="text"
-                value={tagFormData.abbreviation}
-                onChange={(e) => setTagFormData(prev => ({ ...prev, abbreviation: e.target.value.toUpperCase() }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500 font-mono"
-                placeholder="예: WC, MC"
-                maxLength={10}
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                와인 등록 시 자동으로 견출지 번호가 생성됩니다 (예: WC-001, WC-002)
-              </p>
-            </div>
-          )}
-
           {/* Color */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -320,19 +290,12 @@ export function SettingsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 미리보기
               </label>
-              <div className="flex items-center gap-2">
-                <span
-                  className="px-3 py-1.5 rounded-full text-sm font-medium text-white"
-                  style={{ backgroundColor: tagFormData.color }}
-                >
-                  {tagFormData.name}
-                </span>
-                {tagFormData.type === 'cellar' && tagFormData.abbreviation && (
-                  <span className="px-2 py-1 bg-wine-100 text-wine-800 text-xs font-mono font-semibold rounded">
-                    {tagFormData.abbreviation}-001
-                  </span>
-                )}
-              </div>
+              <span
+                className="px-3 py-1.5 rounded-full text-sm font-medium text-white"
+                style={{ backgroundColor: tagFormData.color }}
+              >
+                {tagFormData.name}
+              </span>
             </div>
           )}
 
