@@ -14,7 +14,6 @@ class TagCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
     type: TagType = TagType.CUSTOM
     color: str = Field(default="#6B7280", pattern=r"^#[0-9A-Fa-f]{6}$")
-    abbreviation: str | None = Field(None, min_length=1, max_length=10, description="약자 (예: WC, MC)")
 
 
 class TagUpdate(BaseModel):
@@ -22,7 +21,6 @@ class TagUpdate(BaseModel):
 
     name: str | None = Field(None, min_length=1, max_length=50)
     color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
-    abbreviation: str | None = Field(None, min_length=1, max_length=10)
 
 
 class TagResponse(BaseModel):
@@ -33,8 +31,6 @@ class TagResponse(BaseModel):
     type: TagType
     color: str
     sort_order: int
-    abbreviation: str | None = None
-    next_sequence: int = 1
     wine_count: int = 0
     created_at: datetime
 

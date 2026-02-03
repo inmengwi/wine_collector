@@ -44,9 +44,6 @@ class Tag(Base):
     )
     color: Mapped[str] = mapped_column(String(7), default="#6B7280")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    # Label number fields for cellar tags
-    abbreviation: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    next_sequence: Mapped[int] = mapped_column(Integer, default=1)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
