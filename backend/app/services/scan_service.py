@@ -205,9 +205,9 @@ class ScanService:
             select(Wine).where(
                 Wine.name.ilike(f"%{wine_info['name']}%"),
                 Wine.vintage == wine_info.get("vintage"),
-            )
+            ).limit(1)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def _find_user_wine(self, user_id: UUID, wine_id: UUID) -> UserWine | None:
         """Find user's wine entry."""
