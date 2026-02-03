@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   CameraIcon,
   PhotoIcon,
@@ -9,10 +9,10 @@ import {
 } from '@heroicons/react/24/outline';
 import { Header } from '../components/layout';
 import { CameraView, ScanResultCard } from '../components/scan';
-import { Button, Loading, Modal } from '../components/common';
-import { scanService, wineService } from '../services';
+import { Button, Loading, Modal, TagChip } from '../components/common';
+import { scanService, wineService, tagService } from '../services';
 import { useScanStore } from '../stores';
-import type { ScanResult, UserWineCreateRequest, ScannedWine, WineType } from '../types';
+import type { ScanResult, UserWineCreateRequest, ScannedWine, WineType, Tag } from '../types';
 
 type ScanMode = 'single' | 'batch' | 'continuous';
 
@@ -34,8 +34,17 @@ export function ScanPage() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedWine, setEditedWine] = useState<ScannedWine | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   const { isScanning, setScanning } = useScanStore();
+
+  // Fetch cellar tags for selection
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => tagService.getTags(),
+  });
+
+  const cellarTags = tagsData?.tags.filter((t) => t.type === 'cellar') || [];
 
   const scanMutation = useMutation({
     mutationFn: async (imageData: string) => {
@@ -76,14 +85,20 @@ export function ScanPage() {
   const handleConfirm = () => {
     if (!scanResult) return;
 
+    const baseRequest: UserWineCreateRequest = {
+      quantity: 1,
+      tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+    };
+
     // If an existing wine was found, use its ID; otherwise send the scanned wine data
     if (scanResult.existing_wine_id) {
       addWineMutation.mutate({
+        ...baseRequest,
         wine_id: scanResult.existing_wine_id,
-        quantity: 1,
       });
     } else {
       addWineMutation.mutate({
+        ...baseRequest,
         wine_overrides: {
           name: scanResult.wine.name,
           producer: scanResult.wine.producer,
@@ -93,13 +108,21 @@ export function ScanPage() {
           country: scanResult.wine.country,
           type: scanResult.wine.type,
         },
-        quantity: 1,
       });
     }
   };
 
+  const toggleTagSelection = (tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((id) => id !== tagId)
+        : [...prev, tagId]
+    );
+  };
+
   const handleRetry = () => {
     setScanResult(null);
+    setSelectedTagIds([]);
     setShowCamera(true);
   };
 
@@ -169,13 +192,58 @@ export function ScanPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header title="스캔 결과" showBack />
-        <div className="p-4">
+        <div className="p-4 space-y-4">
           <ScanResultCard
             result={scanResult}
             onConfirm={handleConfirm}
             onEdit={handleOpenEdit}
             onRetry={handleRetry}
           />
+
+          {/* Cellar Tag Selection */}
+          {cellarTags.length > 0 && (
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                셀러 선택
+                {selectedTagIds.length > 0 && (
+                  <span className="ml-2 text-wine-600">
+                    ({selectedTagIds.length}개 선택됨)
+                  </span>
+                )}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {cellarTags.map((tag) => {
+                  const isSelected = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTagSelection(tag.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-offset-1 ring-wine-500'
+                          : 'opacity-70 hover:opacity-100'
+                      }`}
+                      style={{
+                        backgroundColor: tag.color,
+                        color: '#fff',
+                      }}
+                    >
+                      {tag.name}
+                      {tag.abbreviation && (
+                        <span className="ml-1 opacity-75">({tag.abbreviation})</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedTagIds.length > 0 && cellarTags.some(t => selectedTagIds.includes(t.id) && t.abbreviation) && (
+                <p className="mt-2 text-xs text-gray-500">
+                  견출지 번호가 자동으로 생성됩니다
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Edit Modal */}
