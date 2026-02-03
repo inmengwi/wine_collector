@@ -317,6 +317,14 @@ class WineService:
                 tag_link = UserWineTag(user_wine_id=user_wine_id, tag_id=tag_id)
                 self.db.add(tag_link)
 
+            # Generate label_number if not exists and cellar tag with abbreviation is added
+            if not user_wine.label_number:
+                label_number, cellar_tag = await self._generate_label_number(data.tag_ids)
+                if label_number:
+                    user_wine.label_number = label_number
+                    if cellar_tag:
+                        cellar_tag.next_sequence += 1
+
         await self.db.commit()
 
         return await self.get_user_wine(user_id, user_wine_id)
