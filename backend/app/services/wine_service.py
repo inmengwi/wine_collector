@@ -203,8 +203,16 @@ class WineService:
         )
         user = result.scalar_one()
 
+        # Get current year
+        current_year = datetime.now().year
+
+        # Reset sequence if year changed
+        if user.label_sequence_year != current_year:
+            user.next_label_sequence = 1
+            user.label_sequence_year = current_year
+
         # Get year suffix (last 2 digits)
-        year_suffix = datetime.now().year % 100
+        year_suffix = current_year % 100
 
         # Generate label number: YY-N
         label_number = f"{year_suffix}-{user.next_label_sequence}"

@@ -30,8 +30,16 @@ def upgrade() -> None:
     if not column_exists('users', 'next_label_sequence'):
         op.add_column('users', sa.Column('next_label_sequence', sa.Integer(), nullable=False, server_default='1'))
 
+    # Add label_sequence_year to users table (if not exists)
+    if not column_exists('users', 'label_sequence_year'):
+        op.add_column('users', sa.Column('label_sequence_year', sa.Integer(), nullable=True))
+
 
 def downgrade() -> None:
+    # Remove label_sequence_year from users
+    if column_exists('users', 'label_sequence_year'):
+        op.drop_column('users', 'label_sequence_year')
+
     # Remove next_label_sequence from users
     if column_exists('users', 'next_label_sequence'):
         op.drop_column('users', 'next_label_sequence')

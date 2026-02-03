@@ -34,6 +34,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     next_label_sequence: Mapped[int] = mapped_column(Integer, default=1)
+    label_sequence_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     last_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
