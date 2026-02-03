@@ -8,6 +8,7 @@ import {
   PlusIcon,
   GiftIcon,
   CheckIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { Header } from '../components/layout';
 import {
@@ -520,11 +521,24 @@ export function WineDetailPage() {
           </div>
 
           {/* Tags */}
-          {tagsData && tagsData.tags.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
                 태그
               </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  navigate('/settings', { state: { openTagModal: true } });
+                }}
+                className="flex items-center gap-1 text-xs text-wine-600 hover:text-wine-700"
+              >
+                <Cog6ToothIcon className="h-3.5 w-3.5" />
+                관리
+              </button>
+            </div>
+            {tagsData && tagsData.tags.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {tagsData.tags.map((tag: Tag) => (
                   <button
@@ -542,8 +556,22 @@ export function WineDetailPage() {
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-gray-500">
+                등록된 태그가 없습니다.{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    navigate('/settings', { state: { openTagModal: true } });
+                  }}
+                  className="text-wine-600 hover:text-wine-700 underline"
+                >
+                  태그 추가하기
+                </button>
+              </p>
+            )}
+          </div>
 
           {/* Personal Note */}
           <div>

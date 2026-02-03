@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   UserCircleIcon,
   TagIcon,
@@ -26,6 +26,7 @@ const DEFAULT_COLORS = ['#DC2626', '#EA580C', '#D97706', '#65A30D', '#0891B2', '
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { user, logout } = useAuthStore();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -36,6 +37,16 @@ export function SettingsPage() {
     type: 'cellar',
     color: DEFAULT_COLORS[0],
   });
+
+  // Handle navigation state to auto-open tag modal
+  useEffect(() => {
+    const state = location.state as { openTagModal?: boolean } | null;
+    if (state?.openTagModal) {
+      setShowTagModal(true);
+      // Clear the state to prevent re-opening on subsequent renders
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
 
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
