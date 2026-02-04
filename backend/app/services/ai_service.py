@@ -70,8 +70,8 @@ class AIService:
     async def analyze_wine_label(self, image_content: bytes) -> dict | None:
         """Analyze a wine label image and extract information."""
         if not self.provider:
-            # Return mock data for development
-            return self._get_mock_wine_data()
+            self.logger.warning("AI provider is not configured; skipping analysis.")
+            return None
 
         try:
             response_text = await self.provider.generate_content(
@@ -114,7 +114,8 @@ Only include fields you can determine from the label or your knowledge. Return o
     async def analyze_batch_wine_labels(self, image_content: bytes) -> list[dict]:
         """Analyze multiple wine labels in a single image."""
         if not self.provider:
-            return [self._get_mock_wine_data(), self._get_mock_wine_data()]
+            self.logger.warning("AI provider is not configured; skipping batch analysis.")
+            return []
 
         try:
             response_text = await self.provider.generate_content(
