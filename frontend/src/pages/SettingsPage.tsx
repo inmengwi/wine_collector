@@ -8,13 +8,14 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronRightIcon,
   PlusIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '../components/layout';
 import { Button, Modal, TagChip, ConfirmDialog } from '../components/common';
 import { useAuthStore } from '../stores';
 import { tagService } from '../services';
-import type { TagType, TagCreateRequest } from '../types';
+import type { Tag, TagType, TagCreateRequest } from '../types';
 
 interface TagFormData {
   name: string;
@@ -32,6 +33,7 @@ export function SettingsPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
   const [showCreateTagModal, setShowCreateTagModal] = useState(false);
+  const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
   const [tagFormData, setTagFormData] = useState<TagFormData>({
     name: '',
     type: 'cellar',
@@ -59,6 +61,14 @@ export function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       setShowCreateTagModal(false);
       setTagFormData({ name: '', type: 'cellar', color: DEFAULT_COLORS[0] });
+    },
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: (tagId: string) => tagService.deleteTag(tagId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      setTagToDelete(null);
     },
   });
 
@@ -187,7 +197,16 @@ export function SettingsPage() {
               {tagsData?.tags
                 .filter((t) => t.type === 'cellar')
                 .map((tag) => (
-                  <TagChip key={tag.id} tag={tag} />
+                  <div key={tag.id} className="flex items-center gap-1">
+                    <TagChip tag={tag} />
+                    <button
+                      onClick={() => setTagToDelete(tag)}
+                      className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                      title="삭제"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                    </button>
+                  </div>
                 ))}
               <button
                 onClick={() => handleOpenCreateTag('cellar')}
@@ -206,7 +225,16 @@ export function SettingsPage() {
               {tagsData?.tags
                 .filter((t) => t.type === 'location')
                 .map((tag) => (
-                  <TagChip key={tag.id} tag={tag} />
+                  <div key={tag.id} className="flex items-center gap-1">
+                    <TagChip tag={tag} />
+                    <button
+                      onClick={() => setTagToDelete(tag)}
+                      className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                      title="삭제"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                    </button>
+                  </div>
                 ))}
               <button
                 onClick={() => handleOpenCreateTag('location')}
@@ -225,7 +253,16 @@ export function SettingsPage() {
               {tagsData?.tags
                 .filter((t) => t.type === 'custom')
                 .map((tag) => (
-                  <TagChip key={tag.id} tag={tag} />
+                  <div key={tag.id} className="flex items-center gap-1">
+                    <TagChip tag={tag} />
+                    <button
+                      onClick={() => setTagToDelete(tag)}
+                      className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                      title="삭제"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                    </button>
+                  </div>
                 ))}
               <button
                 onClick={() => handleOpenCreateTag('custom')}
@@ -252,6 +289,18 @@ export function SettingsPage() {
         message="정말 로그아웃 하시겠습니까?"
         confirmText="로그아웃"
         variant="danger"
+      />
+
+      {/* Delete Tag Confirm */}
+      <ConfirmDialog
+        isOpen={!!tagToDelete}
+        onClose={() => setTagToDelete(null)}
+        onConfirm={() => tagToDelete && deleteTagMutation.mutate(tagToDelete.id)}
+        title="태그 삭제"
+        message={`"${tagToDelete?.name}" 태그를 삭제하시겠습니까? 이미 와인에 추가된 태그 정보는 유지됩니다.`}
+        confirmText="삭제"
+        variant="danger"
+        isLoading={deleteTagMutation.isPending}
       />
 
       {/* Create Tag Modal */}

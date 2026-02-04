@@ -90,7 +90,7 @@ async def delete_tag(
 
     return ResponseModel(
         data={"affected_wines": result},
-        message=f"Tag deleted. Removed from {result} wines.",
+        message=f"태그가 삭제되었습니다. {result}개 와인에서 태그 정보는 유지됩니다.",
     )
 
 
