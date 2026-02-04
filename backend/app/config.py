@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     # AI Provider
     ai_provider: str = "anthropic"
     gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.0-flash"
 
     # Storage
     storage_type: str = "r2"
