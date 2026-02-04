@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     # Anthropic API
     anthropic_api_key: str = ""
 
+    # AI Provider
+    ai_provider: str = "anthropic"
+    gemini_api_key: str = ""
+
     # Storage
     storage_type: str = "r2"
     r2_account_id: str = ""
