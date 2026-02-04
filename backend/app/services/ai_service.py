@@ -1,50 +1,79 @@
 """AI service for wine label recognition and recommendations."""
 
-import base64
 import json
+import logging
 from decimal import Decimal
 
 import anthropic
 
 from app.config import settings
+from app.services.ai.providers import AnthropicVisionProvider, GeminiVisionProvider, VisionProvider
 
 
 class AIService:
     """Service for AI-powered wine analysis using Claude."""
 
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.provider = self._select_provider()
         self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self.model = "claude-sonnet-4-20250514"
 
+    def _select_provider(self) -> VisionProvider | None:
+        provider_name = settings.ai_provider.lower()
+        if provider_name == "gemini":
+            if not settings.gemini_api_key:
+                return None
+            return GeminiVisionProvider(
+                api_key=settings.gemini_api_key,
+                model="gemini-3.0-flash",
+            )
+        if provider_name == "anthropic":
+            if not settings.anthropic_api_key:
+                return None
+            return AnthropicVisionProvider(
+                api_key=settings.anthropic_api_key,
+                model="claude-sonnet-4-20250514",
+            )
+        self.logger.warning("Unknown AI provider '%s'", settings.ai_provider)
+        return None
+
+    def _parse_json_object(self, response_text: str) -> dict | None:
+        json_start = response_text.find("{")
+        json_end = response_text.rfind("}") + 1
+        if json_start == -1 or json_end <= json_start:
+            self.logger.error("AI response JSON parse failed: no object found.")
+            return None
+        json_str = response_text[json_start:json_end]
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError:
+            self.logger.error("AI response JSON parse failed: invalid object.")
+            return None
+
+    def _parse_json_array(self, response_text: str) -> list[dict]:
+        json_start = response_text.find("[")
+        json_end = response_text.rfind("]") + 1
+        if json_start == -1 or json_end <= json_start:
+            self.logger.error("AI response JSON parse failed: no array found.")
+            return []
+        json_str = response_text[json_start:json_end]
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError:
+            self.logger.error("AI response JSON parse failed: invalid array.")
+            return []
+
     async def analyze_wine_label(self, image_content: bytes) -> dict | None:
         """Analyze a wine label image and extract information."""
-        if not settings.anthropic_api_key:
+        if not self.provider:
             # Return mock data for development
             return self._get_mock_wine_data()
 
         try:
-            # Encode image to base64
-            image_base64 = base64.standard_b64encode(image_content).decode("utf-8")
-
-            # Create message with vision
-            message = self.client.messages.create(
-                model=self.model,
-                max_tokens=2000,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/jpeg",
-                                    "data": image_base64,
-                                },
-                            },
-                            {
-                                "type": "text",
-                                "text": """Analyze this wine label image and extract the following information in JSON format:
+            response_text = await self.provider.generate_content(
+                image_content=image_content,
+                prompt="""Analyze this wine label image and extract the following information in JSON format:
 
 {
   "name": "Full wine name",
@@ -71,58 +100,23 @@ class AIService:
 }
 
 Only include fields you can determine from the label or your knowledge. Return only valid JSON.""",
-                            },
-                        ],
-                    }
-                ],
+                max_tokens=2000,
             )
-
-            # Parse response
-            response_text = message.content[0].text
-
-            # Extract JSON from response
-            try:
-                # Try to find JSON in the response
-                json_start = response_text.find("{")
-                json_end = response_text.rfind("}") + 1
-                if json_start != -1 and json_end > json_start:
-                    json_str = response_text[json_start:json_end]
-                    return json.loads(json_str)
-            except json.JSONDecodeError:
-                pass
-
-            return None
+            return self._parse_json_object(response_text)
 
         except Exception as e:
-            print(f"AI analysis error: {e}")
+            self.logger.exception("AI analysis error: %s", e)
             return None
 
     async def analyze_batch_wine_labels(self, image_content: bytes) -> list[dict]:
         """Analyze multiple wine labels in a single image."""
-        if not settings.anthropic_api_key:
+        if not self.provider:
             return [self._get_mock_wine_data(), self._get_mock_wine_data()]
 
         try:
-            image_base64 = base64.standard_b64encode(image_content).decode("utf-8")
-
-            message = self.client.messages.create(
-                model=self.model,
-                max_tokens=4000,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/jpeg",
-                                    "data": image_base64,
-                                },
-                            },
-                            {
-                                "type": "text",
-                                "text": """Analyze this image containing multiple wine bottles. For each visible wine label, extract information.
+            response_text = await self.provider.generate_content(
+                image_content=image_content,
+                prompt="""Analyze this image containing multiple wine bottles. For each visible wine label, extract information.
 
 Return a JSON array of objects:
 [
@@ -145,27 +139,12 @@ Return a JSON array of objects:
 ]
 
 Return only valid JSON array.""",
-                            },
-                        ],
-                    }
-                ],
+                max_tokens=4000,
             )
-
-            response_text = message.content[0].text
-
-            try:
-                json_start = response_text.find("[")
-                json_end = response_text.rfind("]") + 1
-                if json_start != -1 and json_end > json_start:
-                    json_str = response_text[json_start:json_end]
-                    return json.loads(json_str)
-            except json.JSONDecodeError:
-                pass
-
-            return []
+            return self._parse_json_array(response_text)
 
         except Exception as e:
-            print(f"Batch AI analysis error: {e}")
+            self.logger.exception("Batch AI analysis error: %s", e)
             return []
 
     async def get_pairing_recommendations(
@@ -232,7 +211,7 @@ Return only valid JSON.""",
             return {"recommendations": [], "general_advice": None}
 
         except Exception as e:
-            print(f"Pairing recommendation error: {e}")
+            self.logger.exception("Pairing recommendation error: %s", e)
             return {"recommendations": [], "general_advice": None}
 
     def _get_mock_wine_data(self) -> dict:
