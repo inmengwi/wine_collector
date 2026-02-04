@@ -34,6 +34,19 @@ class ScanResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ScanRefineResponse(BaseModel):
+    """Refined scan response after additional images."""
+
+    scan_id: str
+    confidence: Decimal
+    wine: ScannedWineInfo
+    image_urls: list[str]
+    existing_wine_id: UUID | None = None
+    is_duplicate: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class BoundingBox(BaseModel):
     """Bounding box for detected wine label."""
 

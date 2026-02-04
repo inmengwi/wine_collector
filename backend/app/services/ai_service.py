@@ -105,7 +105,14 @@ class AIService:
 Only include fields you can determine from the label or your knowledge. Return only valid JSON.""",
                 max_tokens=2000,
             )
-            return self._parse_json_object(response_text)
+            parsed = self._parse_json_object(response_text)
+            if parsed:
+                return parsed
+            self.logger.warning("AI response JSON parse failed; returning placeholder for refinement.")
+            return {
+                "name": "Unknown",
+                "confidence": Decimal("0.1"),
+            }
 
         except Exception as e:
             self.logger.exception("AI analysis error: %s", e)
