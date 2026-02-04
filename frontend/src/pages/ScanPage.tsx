@@ -9,10 +9,10 @@ import {
 } from '@heroicons/react/24/outline';
 import { Header } from '../components/layout';
 import { CameraView, ScanResultCard } from '../components/scan';
-import { Button, Loading, Modal, TagChip } from '../components/common';
+import { Button, Loading, Modal } from '../components/common';
 import { scanService, wineService, tagService } from '../services';
 import { useScanStore } from '../stores';
-import type { ScanResult, UserWineCreateRequest, ScannedWine, WineType, Tag } from '../types';
+import type { ScanResult, UserWineCreateRequest, ScannedWine, WineType } from '../types';
 
 type ScanMode = 'single' | 'batch' | 'continuous';
 
