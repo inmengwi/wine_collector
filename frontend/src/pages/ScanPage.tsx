@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
@@ -40,6 +40,7 @@ export function ScanPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedWine, setEditedWine] = useState<ScannedWine | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedBatchIndexes, setSelectedBatchIndexes] = useState<number[]>([]);
 
   const {
     mode: scanMode,
@@ -105,6 +106,38 @@ export function ScanPage() {
     },
   });
 
+  const addMultipleWinesMutation = useMutation({
+    mutationFn: async (requests: UserWineCreateRequest[]) => {
+      const results = [];
+      for (const request of requests) {
+        results.push(await wineService.createWine(request));
+      }
+      return results;
+    },
+    onSuccess: () => {
+      setBatchResult(null);
+      clearContinuousResults();
+      setSelectedTagIds([]);
+      setSelectedBatchIndexes([]);
+      navigate('/cellar');
+    },
+    onError: (error) => {
+      console.error('Add wines error:', error);
+      alert('와인 추가에 실패했습니다.');
+    },
+  });
+
+  useEffect(() => {
+    if (!batchResult) {
+      setSelectedBatchIndexes([]);
+      return;
+    }
+    const successIndexes = batchResult.wines
+      .filter((item) => item.status === 'success')
+      .map((item) => item.index);
+    setSelectedBatchIndexes(successIndexes);
+  }, [batchResult]);
+
   const handleCapture = (imageData: string) => {
     if (scanMode === 'batch') {
       setBatchResult(null);
@@ -116,34 +149,38 @@ export function ScanPage() {
     scanMutation.mutate(imageData);
   };
 
-  const handleConfirm = () => {
-    if (!scanResult) return;
-
+  const buildCreateRequest = (wine: ScannedWine, existingWineId?: string | null) => {
     const baseRequest: UserWineCreateRequest = {
       quantity: 1,
       tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
     };
 
-    // If an existing wine was found, use its ID; otherwise send the scanned wine data
-    if (scanResult.existing_wine_id) {
-      addWineMutation.mutate({
+    if (existingWineId) {
+      return {
         ...baseRequest,
-        wine_id: scanResult.existing_wine_id,
-      });
-    } else {
-      addWineMutation.mutate({
-        ...baseRequest,
-        wine_overrides: {
-          name: scanResult.wine.name,
-          producer: scanResult.wine.producer,
-          vintage: scanResult.wine.vintage,
-          grape_variety: scanResult.wine.grape_variety,
-          region: scanResult.wine.region,
-          country: scanResult.wine.country,
-          type: scanResult.wine.type,
-        },
-      });
+        wine_id: existingWineId,
+      };
     }
+
+    return {
+      ...baseRequest,
+      wine_overrides: {
+        name: wine.name,
+        producer: wine.producer,
+        vintage: wine.vintage,
+        grape_variety: wine.grape_variety,
+        region: wine.region,
+        country: wine.country,
+        type: wine.type,
+      },
+    };
+  };
+
+  const handleConfirm = () => {
+    if (!scanResult) return;
+
+    // If an existing wine was found, use its ID; otherwise send the scanned wine data
+    addWineMutation.mutate(buildCreateRequest(scanResult.wine, scanResult.existing_wine_id));
   };
 
   const toggleTagSelection = (tagId: string) => {
@@ -167,6 +204,7 @@ export function ScanPage() {
   const handleContinuousFinish = () => {
     setContinuousSessionActive(false);
     clearContinuousResults();
+    setSelectedTagIds([]);
   };
 
   const handleOpenEdit = () => {
@@ -225,9 +263,43 @@ export function ScanPage() {
     setScanMode(mode);
     setScanResult(null);
     setSelectedTagIds([]);
+    setSelectedBatchIndexes([]);
     setBatchResult(null);
     clearContinuousResults();
     setContinuousSessionActive(mode === 'continuous');
+  };
+
+  const toggleBatchSelection = (index: number) => {
+    setSelectedBatchIndexes((prev) =>
+      prev.includes(index) ? prev.filter((item) => item !== index) : [...prev, index]
+    );
+  };
+
+  const handleAddBatchWines = () => {
+    if (!batchResult) return;
+    const selectedItems = batchResult.wines.filter(
+      (item) => item.status === 'success' && selectedBatchIndexes.includes(item.index)
+    );
+    if (selectedItems.length === 0) {
+      alert('추가할 와인을 선택해주세요.');
+      return;
+    }
+    const requests = selectedItems
+      .map((item) => item.wine)
+      .filter((wine): wine is ScannedWine => Boolean(wine))
+      .map((wine) => buildCreateRequest(wine));
+    addMultipleWinesMutation.mutate(requests);
+  };
+
+  const handleAddContinuousWines = () => {
+    if (continuousResults.length === 0) {
+      alert('추가할 와인이 없습니다.');
+      return;
+    }
+    const requests = continuousResults.map((result) =>
+      buildCreateRequest(result.wine, result.existing_wine_id)
+    );
+    addMultipleWinesMutation.mutate(requests);
   };
 
   if (showCamera) {
@@ -293,6 +365,17 @@ export function ScanPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div>
+                      {item.status === 'success' && (
+                        <label className="flex items-center gap-2 text-xs text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={selectedBatchIndexes.includes(item.index)}
+                            onChange={() => toggleBatchSelection(item.index)}
+                            className="h-4 w-4 rounded border-gray-300 text-wine-600 focus:ring-wine-500"
+                          />
+                          추가하기
+                        </label>
+                      )}
                       <p className="text-sm font-semibold text-gray-900">
                         #{item.index + 1}{' '}
                         {item.wine?.name ? `· ${item.wine.name}` : '인식 실패'}
@@ -321,6 +404,55 @@ export function ScanPage() {
               ))}
             </div>
           </div>
+
+          {cellarTags.length > 0 && (
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                공통 셀러 선택
+                {selectedTagIds.length > 0 && (
+                  <span className="ml-2 text-wine-600">
+                    ({selectedTagIds.length}개 선택됨)
+                  </span>
+                )}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {cellarTags.map((tag) => {
+                  const isSelected = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTagSelection(tag.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-offset-1 ring-wine-500'
+                          : 'opacity-70 hover:opacity-100'
+                      }`}
+                      style={{
+                        backgroundColor: tag.color,
+                        color: '#fff',
+                      }}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                선택한 태그가 모든 와인에 공통으로 적용됩니다.
+              </p>
+            </div>
+          )}
+
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full"
+            disabled={addMultipleWinesMutation.isPending}
+            onClick={handleAddBatchWines}
+          >
+            선택한 와인 추가하기
+          </Button>
 
           <Button
             variant="primary"
@@ -402,6 +534,55 @@ export function ScanPage() {
               아직 스캔된 결과가 없습니다. 첫 촬영을 진행해주세요.
             </div>
           )}
+
+          {cellarTags.length > 0 && (
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                공통 셀러 선택
+                {selectedTagIds.length > 0 && (
+                  <span className="ml-2 text-wine-600">
+                    ({selectedTagIds.length}개 선택됨)
+                  </span>
+                )}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {cellarTags.map((tag) => {
+                  const isSelected = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTagSelection(tag.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-offset-1 ring-wine-500'
+                          : 'opacity-70 hover:opacity-100'
+                      }`}
+                      style={{
+                        backgroundColor: tag.color,
+                        color: '#fff',
+                      }}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                선택한 태그가 모든 와인에 공통으로 적용됩니다.
+              </p>
+            </div>
+          )}
+
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full"
+            disabled={addMultipleWinesMutation.isPending}
+            onClick={handleAddContinuousWines}
+          >
+            스캔 결과 모두 추가하기
+          </Button>
         </div>
       </div>
     );
