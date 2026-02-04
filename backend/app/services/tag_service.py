@@ -152,7 +152,11 @@ class TagService:
         )
 
     async def delete_tag(self, user_id: UUID, tag_id: UUID) -> int | None:
-        """Delete a tag and return number of affected wines."""
+        """Delete a tag and return number of affected wines.
+
+        Note: Wine-tag associations are preserved so that wines keep their tag info
+        even after the tag is deleted from the user's tag list.
+        """
         result = await self.db.execute(
             select(Tag).where(
                 Tag.id == tag_id,
@@ -171,13 +175,8 @@ class TagService:
         )
         affected_count = count_result.scalar() or 0
 
-        # Soft delete tag
+        # Soft delete tag only (keep wine associations for historical data)
         tag.deleted_at = datetime.now(timezone.utc)
-
-        # Remove tag associations (they will be orphaned otherwise)
-        await self.db.execute(
-            UserWineTag.__table__.delete().where(UserWineTag.tag_id == tag_id)
-        )
 
         await self.db.commit()
 
