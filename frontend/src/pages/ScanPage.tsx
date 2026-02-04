@@ -12,7 +12,13 @@ import { CameraView, ScanResultCard } from '../components/scan';
 import { Button, Loading, Modal } from '../components/common';
 import { scanService, wineService, tagService } from '../services';
 import { useScanStore } from '../stores';
-import type { ScanResult, UserWineCreateRequest, ScannedWine, WineType } from '../types';
+import type {
+  BatchScanResult,
+  ScanResult,
+  UserWineCreateRequest,
+  ScannedWine,
+  WineType,
+} from '../types';
 
 type ScanMode = 'single' | 'batch' | 'continuous';
 
@@ -30,13 +36,24 @@ export function ScanPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCamera, setShowCamera] = useState(false);
-  const [scanMode, setScanMode] = useState<ScanMode>('single');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editedWine, setEditedWine] = useState<ScannedWine | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
-  const { isScanning, setScanning } = useScanStore();
+  const {
+    mode: scanMode,
+    setMode: setScanMode,
+    isScanning,
+    setScanning,
+    batchResult,
+    setBatchResult,
+    continuousResults,
+    addContinuousResult,
+    clearContinuousResults,
+    continuousSessionActive,
+    setContinuousSessionActive,
+  } = useScanStore();
 
   // Fetch cellar tags for selection
   const { data: tagsData } = useQuery({
@@ -48,14 +65,25 @@ export function ScanPage() {
 
   const scanMutation = useMutation({
     mutationFn: async (imageData: string) => {
-      // Convert base64 to blob
       const res = await fetch(imageData);
       const blob = await res.blob();
       const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' });
+
+      if (scanMode === 'batch') {
+        return scanService.scanBatch(file);
+      }
       return scanService.scanSingle(file);
     },
     onSuccess: (result) => {
-      setScanResult(result);
+      if (scanMode === 'batch') {
+        setBatchResult(result as BatchScanResult);
+      } else if (scanMode === 'continuous') {
+        addContinuousResult(result as ScanResult);
+        setContinuousSessionActive(true);
+      } else {
+        setScanResult(result as ScanResult);
+      }
+
       setShowCamera(false);
       setScanning(false);
     },
@@ -78,6 +106,12 @@ export function ScanPage() {
   });
 
   const handleCapture = (imageData: string) => {
+    if (scanMode === 'batch') {
+      setBatchResult(null);
+    }
+    if (scanMode === 'single') {
+      setScanResult(null);
+    }
     setScanning(true);
     scanMutation.mutate(imageData);
   };
@@ -126,6 +160,15 @@ export function ScanPage() {
     setShowCamera(true);
   };
 
+  const handleContinuousNext = () => {
+    setShowCamera(true);
+  };
+
+  const handleContinuousFinish = () => {
+    setContinuousSessionActive(false);
+    clearContinuousResults();
+  };
+
   const handleOpenEdit = () => {
     if (scanResult) {
       setEditedWine({ ...scanResult.wine });
@@ -156,14 +199,35 @@ export function ScanPage() {
 
     setScanning(true);
     try {
-      const result = await scanService.scanSingle(file);
-      setScanResult(result);
+      if (scanMode === 'batch') {
+        setBatchResult(null);
+        const result = await scanService.scanBatch(file);
+        setBatchResult(result);
+      } else {
+        setScanResult(null);
+        const result = await scanService.scanSingle(file);
+        if (scanMode === 'continuous') {
+          addContinuousResult(result);
+          setContinuousSessionActive(true);
+        } else {
+          setScanResult(result);
+        }
+      }
     } catch (error) {
       console.error('Scan error:', error);
       alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleModeChange = (mode: ScanMode) => {
+    setScanMode(mode);
+    setScanResult(null);
+    setSelectedTagIds([]);
+    setBatchResult(null);
+    clearContinuousResults();
+    setContinuousSessionActive(mode === 'continuous');
   };
 
   if (showCamera) {
@@ -183,6 +247,161 @@ export function ScanPage() {
           <Loading size="lg" />
           <p className="mt-4 text-gray-600">와인을 분석하고 있습니다...</p>
           <p className="text-sm text-gray-400 mt-1">잠시만 기다려주세요</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (scanMode === 'batch' && batchResult) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header title="일괄 스캔 결과" showBack />
+        <div className="p-4 space-y-4">
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">스캔 요약</h2>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-gray-500">감지</p>
+                <p className="text-xl font-semibold text-gray-900">
+                  {batchResult.total_detected}
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3">
+                <p className="text-sm text-green-600">성공</p>
+                <p className="text-xl font-semibold text-green-700">
+                  {batchResult.successfully_recognized}
+                </p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3">
+                <p className="text-sm text-red-600">실패</p>
+                <p className="text-xl font-semibold text-red-700">{batchResult.failed}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">세부 결과</h3>
+            <div className="space-y-3">
+              {batchResult.wines.map((item) => (
+                <div
+                  key={item.index}
+                  className={`rounded-lg border p-3 ${
+                    item.status === 'success'
+                      ? 'border-green-200 bg-green-50'
+                      : 'border-red-200 bg-red-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        #{item.index + 1}{' '}
+                        {item.wine?.name ? `· ${item.wine.name}` : '인식 실패'}
+                      </p>
+                      {item.wine?.producer && (
+                        <p className="text-xs text-gray-600">{item.wine.producer}</p>
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs font-semibold ${
+                        item.status === 'success' ? 'text-green-700' : 'text-red-700'
+                      }`}
+                    >
+                      {item.status === 'success' ? '성공' : '실패'}
+                    </span>
+                  </div>
+                  {item.status === 'success' && (
+                    <p className="mt-2 text-xs text-gray-600">
+                      신뢰도: {item.confidence ? `${Math.round(item.confidence * 100)}%` : '-'}
+                    </p>
+                  )}
+                  {item.status === 'failed' && item.error && (
+                    <p className="mt-2 text-xs text-red-700">사유: {item.error}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full"
+            onClick={() => {
+              setBatchResult(null);
+              setShowCamera(true);
+            }}
+          >
+            다시 스캔하기
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (scanMode === 'continuous' && (continuousResults.length > 0 || continuousSessionActive)) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header title="연속 스캔" showBack />
+        <div className="p-4 space-y-4">
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">연속 스캔 진행 중</h2>
+            <p className="text-sm text-gray-600">
+              촬영한 결과가 누적됩니다. 다음 스캔을 이어가거나 종료할 수 있어요.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button variant="primary" onClick={handleContinuousNext}>
+                다음 촬영
+              </Button>
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                갤러리에서 선택
+              </Button>
+            </div>
+            <Button
+              variant="outline"
+              className="mt-2 w-full"
+              onClick={handleContinuousFinish}
+            >
+              연속 스캔 종료
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+          </div>
+
+          {continuousResults.length > 0 ? (
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                누적 결과 ({continuousResults.length})
+              </h3>
+              <div className="space-y-3">
+                {continuousResults.map((result, index) => (
+                  <div
+                    key={`${result.scan_id}-${index}`}
+                    className="rounded-lg border border-gray-200 p-3"
+                  >
+                    <p className="text-sm font-semibold text-gray-900">
+                      {index + 1}. {result.wine.name}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {result.wine.producer || '생산자 정보 없음'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      신뢰도: {Math.round(result.confidence * 100)}%
+                      {result.is_duplicate ? ' · 중복 가능성 있음' : ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl p-4 shadow-sm text-center text-sm text-gray-500">
+              아직 스캔된 결과가 없습니다. 첫 촬영을 진행해주세요.
+            </div>
+          )}
         </div>
       </div>
     );
@@ -389,7 +608,7 @@ export function ScanPage() {
           <h3 className="text-sm font-medium text-gray-700 mb-3">스캔 모드</h3>
           <div className="grid grid-cols-3 gap-2">
             <button
-              onClick={() => setScanMode('single')}
+              onClick={() => handleModeChange('single')}
               className={`p-3 rounded-lg border text-center transition-colors ${
                 scanMode === 'single'
                   ? 'border-wine-500 bg-wine-50 text-wine-700'
@@ -400,7 +619,7 @@ export function ScanPage() {
               <span className="text-xs font-medium">단일</span>
             </button>
             <button
-              onClick={() => setScanMode('batch')}
+              onClick={() => handleModeChange('batch')}
               className={`p-3 rounded-lg border text-center transition-colors ${
                 scanMode === 'batch'
                   ? 'border-wine-500 bg-wine-50 text-wine-700'
@@ -411,7 +630,7 @@ export function ScanPage() {
               <span className="text-xs font-medium">일괄</span>
             </button>
             <button
-              onClick={() => setScanMode('continuous')}
+              onClick={() => handleModeChange('continuous')}
               className={`p-3 rounded-lg border text-center transition-colors ${
                 scanMode === 'continuous'
                   ? 'border-wine-500 bg-wine-50 text-wine-700'

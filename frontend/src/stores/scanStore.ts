@@ -14,6 +14,7 @@ interface ScanState {
   // Batch/Continuous scan results
   batchResult: BatchScanResult | null;
   continuousResults: ScanResult[];
+  continuousSessionActive: boolean;
 
   // Selected wines for registration
   selectedWines: Map<number, { wine: ScannedWine; quantity: number; tagIds: string[] }>;
@@ -26,6 +27,7 @@ interface ScanState {
   setBatchResult: (result: BatchScanResult | null) => void;
   addContinuousResult: (result: ScanResult) => void;
   clearContinuousResults: () => void;
+  setContinuousSessionActive: (active: boolean) => void;
   selectWine: (index: number, wine: ScannedWine, quantity?: number, tagIds?: string[]) => void;
   unselectWine: (index: number) => void;
   updateSelectedWine: (index: number, updates: { quantity?: number; tagIds?: string[] }) => void;
@@ -39,6 +41,7 @@ export const useScanStore = create<ScanState>((set) => ({
   singleResult: null,
   batchResult: null,
   continuousResults: [],
+  continuousSessionActive: false,
   selectedWines: new Map(),
 
   setMode: (mode) => set({ mode }),
@@ -57,6 +60,8 @@ export const useScanStore = create<ScanState>((set) => ({
     })),
 
   clearContinuousResults: () => set({ continuousResults: [] }),
+
+  setContinuousSessionActive: (continuousSessionActive) => set({ continuousSessionActive }),
 
   selectWine: (index, wine, quantity = 1, tagIds = []) =>
     set((state) => {
@@ -91,6 +96,7 @@ export const useScanStore = create<ScanState>((set) => ({
       singleResult: null,
       batchResult: null,
       continuousResults: [],
+      continuousSessionActive: false,
       selectedWines: new Map(),
     }),
 }));
