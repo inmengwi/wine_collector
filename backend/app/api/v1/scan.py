@@ -4,7 +4,12 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from app.api.deps import CurrentUser, DbSession
 from app.schemas.common import ResponseModel
-from app.schemas.scan import ScanResponse, BatchScanResponse, DuplicateCheckResponse
+from app.schemas.scan import (
+    BatchScanResponse,
+    DuplicateCheckResponse,
+    ScanRefineResponse,
+    ScanResponse,
+)
 from app.services.scan_service import ScanService
 
 router = APIRouter()
@@ -95,6 +100,33 @@ async def check_duplicate(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Could not recognize wine label. Please try again with a clearer image.",
+        )
+
+    return ResponseModel(data=result)
+
+
+@router.post("/{scan_id}/refine", response_model=ResponseModel[ScanRefineResponse])
+async def refine_scan(
+    scan_id: str,
+    current_user: CurrentUser,
+    db: DbSession,
+    image: UploadFile = File(..., description="Additional wine image for refinement"),
+):
+    """Refine a scan by adding another image after review."""
+    content = await validate_image(image)
+
+    service = ScanService(db)
+    result = await service.refine_scan(
+        user_id=current_user.id,
+        scan_id=scan_id,
+        image_content=content,
+        filename=image.filename or "scan_refine.jpg",
+    )
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Could not refine scan. Please try again with a clearer image.",
         )
 
     return ResponseModel(data=result)
