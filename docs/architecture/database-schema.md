@@ -25,11 +25,12 @@
 │ email           │  │    │ user_id (FK)        │────┘  │ name            │
 │ password_hash   │  └───▶│ wine_id (FK)        │◀──────│ producer        │
 │ name            │       │ quantity            │       │ vintage         │
-│ created_at      │       │ purchase_date       │       │ grape_variety   │
-│ updated_at      │       │ purchase_price      │       │ region          │
-└─────────────────┘       │ status              │       │ country         │
-                          │ personal_note       │       │ type            │
-                          │ created_at          │       │ ...             │
+│ next_label_seq  │       │ label_number        │       │ grape_variety   │
+│ label_seq_year  │       │ purchase_date       │       │ region          │
+│ created_at      │       │ purchase_price      │       │ country         │
+│ updated_at      │       │ status              │       │ type            │
+└─────────────────┘       │ personal_note       │       │ ...             │
+                          │ created_at          │       │                 │
                           │ updated_at          │       └─────────────────┘
                           └──────────┬──────────┘
                                      │
@@ -75,6 +76,8 @@ CREATE TABLE users (
     is_active       BOOLEAN DEFAULT TRUE,
     is_verified     BOOLEAN DEFAULT FALSE,
     last_login_at   TIMESTAMP WITH TIME ZONE,
+    next_label_sequence INTEGER NOT NULL DEFAULT 1,
+    label_sequence_year INTEGER,
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     deleted_at      TIMESTAMP WITH TIME ZONE
@@ -95,6 +98,8 @@ CREATE INDEX idx_users_created_at ON users(created_at);
 | is_active | BOOLEAN | DEFAULT TRUE | 활성 상태 |
 | is_verified | BOOLEAN | DEFAULT FALSE | 이메일 인증 여부 |
 | last_login_at | TIMESTAMPTZ | | 마지막 로그인 시간 |
+| next_label_sequence | INTEGER | DEFAULT 1 | 라벨 번호 자동 발급 시퀀스 |
+| label_sequence_year | INTEGER | | 라벨 시퀀스 기준 연도 (연도 변경 시 시퀀스 초기화) |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 생성 시간 |
 | updated_at | TIMESTAMPTZ | DEFAULT NOW() | 수정 시간 |
 | deleted_at | TIMESTAMPTZ | | 삭제 시간 (soft delete) |
@@ -210,6 +215,7 @@ CREATE TABLE user_wines (
 
     -- 보유 정보
     quantity        INTEGER NOT NULL DEFAULT 1 CHECK (quantity >= 0),
+    label_number    VARCHAR(20),
     status          VARCHAR(20) NOT NULL DEFAULT 'owned',
 
     -- 구매 정보 (선택)
@@ -235,6 +241,7 @@ CREATE INDEX idx_user_wines_user_id ON user_wines(user_id) WHERE deleted_at IS N
 CREATE INDEX idx_user_wines_wine_id ON user_wines(wine_id);
 CREATE INDEX idx_user_wines_status ON user_wines(user_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_user_wines_created_at ON user_wines(user_id, created_at DESC);
+CREATE INDEX idx_user_wines_label_number ON user_wines(label_number);
 
 -- 복합 유니크 (같은 사용자가 같은 와인을 중복 등록하지 않도록)
 CREATE UNIQUE INDEX idx_user_wines_unique ON user_wines(user_id, wine_id)
@@ -247,6 +254,7 @@ WHERE deleted_at IS NULL AND status = 'owned';
 | user_id | UUID | FK, NOT NULL | 사용자 ID |
 | wine_id | UUID | FK, NOT NULL | 와인 ID |
 | quantity | INTEGER | DEFAULT 1, >= 0 | 보유 수량 |
+| label_number | VARCHAR(20) | | 자동 라벨 번호 (YY-시퀀스) |
 | status | VARCHAR(20) | NOT NULL | owned/consumed/gifted |
 | purchase_date | DATE | | 구매일 (선택) |
 | purchase_price | DECIMAL(10,2) | | 구매가격 (선택) |
@@ -587,6 +595,7 @@ CREATE TRIGGER create_user_default_tags
 | wines | (name, producer, vintage) | 중복 방지 |
 | user_wines | user_id + status | 사용자 셀러 조회 |
 | user_wines | (user_id, wine_id) | 중복 방지 |
+| user_wines | label_number | 라벨 번호 검색 |
 | tags | user_id | 사용자 태그 조회 |
 | recommendations | user_id + created_at | 추천 이력 조회 |
 
@@ -621,6 +630,7 @@ SELECT
     uw.purchase_date,
     uw.purchase_price,
     uw.personal_note,
+    uw.label_number,
     w.name,
     w.producer,
     w.vintage,
