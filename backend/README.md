@@ -116,9 +116,34 @@ backend/
 | DATABASE_URL | PostgreSQL connection URL | Yes |
 | JWT_SECRET_KEY | Secret key for JWT | Yes |
 | ANTHROPIC_API_KEY | Claude API key | For AI features |
+| AI_PROVIDER | AI provider to use (`anthropic` or `gemini`) | No (default: anthropic) |
+| GEMINI_API_KEY | Gemini API key | For Gemini AI features |
+| GEMINI_MODEL | Gemini model name | No (default: gemini-3.0-flash) |
 | R2_ACCESS_KEY_ID | R2 access key | For file uploads |
 | R2_SECRET_ACCESS_KEY | R2 secret key | For file uploads |
 | R2_BUCKET_NAME | R2 bucket name | For file uploads |
+
+### Environment Variable Examples
+
+**Development**
+```bash
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/wine_collector
+JWT_SECRET_KEY=dev-secret
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your-anthropic-key
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.0-flash
+```
+
+**Production**
+```bash
+DATABASE_URL=postgresql+asyncpg://user:password@db.example.com:5432/wine_collector
+JWT_SECRET_KEY=change-me
+AI_PROVIDER=gemini
+ANTHROPIC_API_KEY=
+GEMINI_API_KEY=your-gemini-key
+GEMINI_MODEL=gemini-3.0-flash
+```
 
 ## Running Tests
 

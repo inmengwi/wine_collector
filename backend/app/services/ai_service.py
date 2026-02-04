@@ -16,8 +16,11 @@ class AIService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.provider = self._select_provider()
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        self.model = "claude-sonnet-4-20250514"
+        self.client = None
+        self.model = None
+        if settings.ai_provider.lower() == "anthropic" and settings.anthropic_api_key:
+            self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+            self.model = "claude-sonnet-4-20250514"
 
     def _select_provider(self) -> VisionProvider | None:
         provider_name = settings.ai_provider.lower()
@@ -26,7 +29,7 @@ class AIService:
                 return None
             return GeminiVisionProvider(
                 api_key=settings.gemini_api_key,
-                model="gemini-3.0-flash",
+                model=settings.gemini_model,
             )
         if provider_name == "anthropic":
             if not settings.anthropic_api_key:
@@ -153,7 +156,7 @@ Return only valid JSON array.""",
         wines: list[dict],
     ) -> dict:
         """Get wine pairing recommendations using AI."""
-        if not settings.anthropic_api_key:
+        if not self.client or not self.model:
             return self._get_mock_recommendations(wines)
 
         try:
