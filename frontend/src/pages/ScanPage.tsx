@@ -42,7 +42,8 @@ export function ScanPage() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedBatchIndexes, setSelectedBatchIndexes] = useState<number[]>([]);
   const [singleWaitingActive, setSingleWaitingActive] = useState(false);
-  const [singleWaitingResult, setSingleWaitingResult] = useState<ScanResult | null>(null);
+  const [singleWaitingError, setSingleWaitingError] = useState<string | null>(null);
+  const [singleWaitingProgress, setSingleWaitingProgress] = useState(0);
   const singleScanAbortRef = useRef<AbortController | null>(null);
 
   const {
@@ -92,7 +93,10 @@ export function ScanPage() {
         addContinuousResult(result as ScanResult);
         setContinuousSessionActive(true);
       } else {
-        setSingleWaitingResult(result as ScanResult);
+        setScanResult(result as ScanResult);
+        setSingleWaitingProgress(100);
+        setSingleWaitingActive(false);
+        setSingleWaitingError(null);
       }
 
       singleScanAbortRef.current = null;
@@ -102,12 +106,17 @@ export function ScanPage() {
     onError: (error) => {
       console.error('Scan error:', error);
       const isCanceled = error instanceof Error && error.name === 'CanceledError';
-      if (!isCanceled) {
-        alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
-      }
       if (scanMode === 'single') {
-        setSingleWaitingActive(false);
-        setSingleWaitingResult(null);
+        if (isCanceled) {
+          setSingleWaitingProgress(0);
+          setSingleWaitingActive(false);
+          setSingleWaitingError(null);
+        } else {
+          setSingleWaitingProgress(0);
+          setSingleWaitingError('분석에 실패했습니다. 다시 촬영하거나 종료해주세요.');
+        }
+      } else if (!isCanceled) {
+        alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
       }
       singleScanAbortRef.current = null;
       setScanning(false);
@@ -157,14 +166,34 @@ export function ScanPage() {
     setSelectedBatchIndexes(successIndexes);
   }, [batchResult]);
 
+  useEffect(() => {
+    if (!singleWaitingActive || singleWaitingError) {
+      setSingleWaitingProgress(0);
+      return;
+    }
+
+    setSingleWaitingProgress(8);
+    const timer = window.setInterval(() => {
+      setSingleWaitingProgress((prev) => {
+        if (prev >= 90) return 90;
+        if (prev < 40) return Math.min(prev + 8, 90);
+        if (prev < 70) return Math.min(prev + 5, 90);
+        return Math.min(prev + 2, 90);
+      });
+    }, 800);
+
+    return () => window.clearInterval(timer);
+  }, [singleWaitingActive, singleWaitingError]);
+
   const handleCapture = (imageData: string) => {
     if (scanMode === 'batch') {
       setBatchResult(null);
     }
     if (scanMode === 'single') {
       setScanResult(null);
+      setSingleWaitingProgress(0);
       setSingleWaitingActive(true);
-      setSingleWaitingResult(null);
+      setSingleWaitingError(null);
       setShowCamera(false);
     }
     setScanning(true);
@@ -223,15 +252,22 @@ export function ScanPage() {
     singleScanAbortRef.current?.abort();
     singleScanAbortRef.current = null;
     setScanning(false);
+    setSingleWaitingProgress(0);
     setSingleWaitingActive(false);
-    setSingleWaitingResult(null);
+    setSingleWaitingError(null);
   };
 
-  const handleSingleScanComplete = () => {
-    if (!singleWaitingResult) return;
-    setScanResult(singleWaitingResult);
+  const handleSingleScanEnd = () => {
+    setSingleWaitingProgress(0);
     setSingleWaitingActive(false);
-    setSingleWaitingResult(null);
+    setSingleWaitingError(null);
+  };
+
+  const handleSingleScanRetry = () => {
+    setSingleWaitingProgress(0);
+    setSingleWaitingActive(false);
+    setSingleWaitingError(null);
+    setShowCamera(true);
   };
 
   const handleContinuousNext = () => {
@@ -281,12 +317,16 @@ export function ScanPage() {
       } else {
         setScanResult(null);
         if (scanMode === 'single') {
+          setSingleWaitingProgress(0);
           setSingleWaitingActive(true);
-          setSingleWaitingResult(null);
+          setSingleWaitingError(null);
           const controller = new AbortController();
           singleScanAbortRef.current = controller;
           const result = await scanService.scanSingle(file, controller.signal);
-          setSingleWaitingResult(result);
+          setScanResult(result);
+          setSingleWaitingProgress(100);
+          setSingleWaitingActive(false);
+          setSingleWaitingError(null);
           singleScanAbortRef.current = null;
           return;
         }
@@ -301,12 +341,17 @@ export function ScanPage() {
     } catch (error) {
       console.error('Scan error:', error);
       const isCanceled = error instanceof Error && error.name === 'CanceledError';
-      if (!isCanceled) {
-        alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
-      }
       if (scanMode === 'single') {
-        setSingleWaitingActive(false);
-        setSingleWaitingResult(null);
+        if (isCanceled) {
+          setSingleWaitingProgress(0);
+          setSingleWaitingActive(false);
+          setSingleWaitingError(null);
+        } else {
+          setSingleWaitingProgress(0);
+          setSingleWaitingError('분석에 실패했습니다. 다시 촬영하거나 종료해주세요.');
+        }
+      } else if (!isCanceled) {
+        alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
       }
     } finally {
       singleScanAbortRef.current = null;
@@ -317,8 +362,9 @@ export function ScanPage() {
   const handleModeChange = (mode: ScanMode) => {
     singleScanAbortRef.current?.abort();
     singleScanAbortRef.current = null;
+    setSingleWaitingProgress(0);
     setSingleWaitingActive(false);
-    setSingleWaitingResult(null);
+    setSingleWaitingError(null);
     setScanMode(mode);
     setScanResult(null);
     setSelectedTagIds([]);
@@ -372,42 +418,53 @@ export function ScanPage() {
   }
 
   if (scanMode === 'single' && singleWaitingActive) {
-    const isAnalysisDone = Boolean(singleWaitingResult);
+    const hasSingleScanError = Boolean(singleWaitingError);
 
     return (
       <div className="min-h-screen bg-gray-50">
         <Header title="단건 스캔 대기" showBack />
         <div className="p-4">
           <div className="bg-white rounded-xl p-5 shadow-sm text-center">
-            {isAnalysisDone ? (
-              <>
-                <p className="text-lg font-semibold text-gray-900">분석이 완료되었습니다</p>
-                <p className="mt-2 text-sm text-gray-600">
-                  완료 버튼을 눌러 결과를 확인하거나 취소할 수 있습니다.
-                </p>
-              </>
-            ) : (
+            {!hasSingleScanError ? (
               <>
                 <Loading size="lg" />
                 <p className="mt-4 text-lg font-semibold text-gray-900">와인을 분석하고 있습니다...</p>
+                <div className="mt-3 flex items-center justify-center gap-1.5 text-sm text-wine-600">
+                  <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                  <span>진행률 {singleWaitingProgress}%</span>
+                </div>
+                <div className="mt-2 h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-full bg-wine-500 transition-all duration-500"
+                    style={{ width: `${singleWaitingProgress}%` }}
+                  />
+                </div>
                 <p className="mt-2 text-sm text-gray-600">
                   취소하거나 분석이 끝날 때까지 이 화면에서 기다려주세요.
                 </p>
               </>
+            ) : (
+              <>
+                <p className="text-lg font-semibold text-red-600">와인 분석에 실패했습니다.</p>
+                <p className="mt-2 text-sm text-gray-600">{singleWaitingError}</p>
+              </>
             )}
 
             <div className="mt-5 space-y-2">
-              <Button variant="outline" className="w-full" onClick={handleSingleScanCancel}>
-                분석 취소
-              </Button>
-              <Button
-                variant="primary"
-                className="w-full"
-                onClick={handleSingleScanComplete}
-                disabled={!isAnalysisDone}
-              >
-                완료
-              </Button>
+              {!hasSingleScanError ? (
+                <Button variant="outline" className="w-full" onClick={handleSingleScanCancel}>
+                  분석 취소
+                </Button>
+              ) : (
+                <>
+                  <Button variant="primary" className="w-full" onClick={handleSingleScanRetry}>
+                    재촬영
+                  </Button>
+                  <Button variant="outline" className="w-full" onClick={handleSingleScanEnd}>
+                    촬영 종료
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -421,7 +478,14 @@ export function ScanPage() {
         <div className="text-center">
           <Loading size="lg" />
           <p className="mt-4 text-gray-600">와인을 분석하고 있습니다...</p>
-          <p className="text-sm text-gray-400 mt-1">잠시만 기다려주세요</p>
+          <div className="mt-2 flex items-center justify-center gap-1.5 text-sm text-wine-600">
+            <ArrowPathIcon className="h-4 w-4 animate-spin" />
+            <span>분석 진행 중</span>
+          </div>
+          <div className="mx-auto mt-3 h-2 w-40 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-wine-500" />
+          </div>
+          <p className="text-sm text-gray-400 mt-2">잠시만 기다려주세요</p>
         </div>
       </div>
     );
