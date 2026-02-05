@@ -43,7 +43,6 @@ export function ScanPage() {
   const [selectedBatchIndexes, setSelectedBatchIndexes] = useState<number[]>([]);
   const [singleWaitingActive, setSingleWaitingActive] = useState(false);
   const [singleWaitingError, setSingleWaitingError] = useState<string | null>(null);
-  const singleScanAbortRef = useRef<AbortController | null>(null);
 
   const {
     mode: scanMode,
@@ -77,12 +76,6 @@ export function ScanPage() {
         return scanService.scanBatch(file);
       }
 
-      if (scanMode === 'single') {
-        const controller = new AbortController();
-        singleScanAbortRef.current = controller;
-        return scanService.scanSingle(file, controller.signal);
-      }
-
       return scanService.scanSingle(file);
     },
     onSuccess: (result) => {
@@ -97,22 +90,14 @@ export function ScanPage() {
         setSingleWaitingError(null);
       }
 
-      singleScanAbortRef.current = null;
       setShowCamera(false);
       setScanning(false);
     },
     onError: (error) => {
       console.error('Scan error:', error);
-      const isCanceled = error instanceof Error && error.name === 'CanceledError';
       if (scanMode === 'single') {
-        if (isCanceled) {
-          setSingleWaitingActive(false);
-          setSingleWaitingError(null);
-        } else {
-          setSingleWaitingError('와인 분석에 실패했습니다. 다시 촬영해주세요.');
-        }
+        setSingleWaitingError('와인 분석에 실패했습니다. 다시 촬영해주세요.');
       }
-      singleScanAbortRef.current = null;
       setScanning(false);
     },
   });
@@ -223,8 +208,6 @@ export function ScanPage() {
   };
 
   const handleSingleScanExit = () => {
-    singleScanAbortRef.current?.abort();
-    singleScanAbortRef.current = null;
     setScanning(false);
     setSingleWaitingActive(false);
     setSingleWaitingError(null);
@@ -285,13 +268,10 @@ export function ScanPage() {
         if (scanMode === 'single') {
           setSingleWaitingActive(true);
           setSingleWaitingError(null);
-          const controller = new AbortController();
-          singleScanAbortRef.current = controller;
-          const result = await scanService.scanSingle(file, controller.signal);
+          const result = await scanService.scanSingle(file);
           setScanResult(result);
           setSingleWaitingActive(false);
           setSingleWaitingError(null);
-          singleScanAbortRef.current = null;
           return;
         }
         const result = await scanService.scanSingle(file);
@@ -304,26 +284,17 @@ export function ScanPage() {
       }
     } catch (error) {
       console.error('Scan error:', error);
-      const isCanceled = error instanceof Error && error.name === 'CanceledError';
       if (scanMode === 'single') {
-        if (isCanceled) {
-          setSingleWaitingActive(false);
-          setSingleWaitingError(null);
-        } else {
-          setSingleWaitingError('와인 분석에 실패했습니다. 다시 촬영해주세요.');
-        }
-      } else if (!isCanceled) {
+        setSingleWaitingError('와인 분석에 실패했습니다. 다시 촬영해주세요.');
+      } else {
         alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
       }
     } finally {
-      singleScanAbortRef.current = null;
       setScanning(false);
     }
   };
 
   const handleModeChange = (mode: ScanMode) => {
-    singleScanAbortRef.current?.abort();
-    singleScanAbortRef.current = null;
     setSingleWaitingActive(false);
     setSingleWaitingError(null);
     setScanMode(mode);
