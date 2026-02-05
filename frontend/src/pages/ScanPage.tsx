@@ -41,6 +41,9 @@ export function ScanPage() {
   const [editedWine, setEditedWine] = useState<ScannedWine | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedBatchIndexes, setSelectedBatchIndexes] = useState<number[]>([]);
+  const [singleWaitingActive, setSingleWaitingActive] = useState(false);
+  const [singleWaitingResult, setSingleWaitingResult] = useState<ScanResult | null>(null);
+  const singleScanAbortRef = useRef<AbortController | null>(null);
 
   const {
     mode: scanMode,
@@ -73,6 +76,13 @@ export function ScanPage() {
       if (scanMode === 'batch') {
         return scanService.scanBatch(file);
       }
+
+      if (scanMode === 'single') {
+        const controller = new AbortController();
+        singleScanAbortRef.current = controller;
+        return scanService.scanSingle(file, controller.signal);
+      }
+
       return scanService.scanSingle(file);
     },
     onSuccess: (result) => {
@@ -82,16 +92,25 @@ export function ScanPage() {
         addContinuousResult(result as ScanResult);
         setContinuousSessionActive(true);
       } else {
-        setScanResult(result as ScanResult);
+        setSingleWaitingResult(result as ScanResult);
       }
 
+      singleScanAbortRef.current = null;
       setShowCamera(false);
       setScanning(false);
     },
     onError: (error) => {
       console.error('Scan error:', error);
+      const isCanceled = error instanceof Error && error.name === 'CanceledError';
+      if (!isCanceled) {
+        alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
+      }
+      if (scanMode === 'single') {
+        setSingleWaitingActive(false);
+        setSingleWaitingResult(null);
+      }
+      singleScanAbortRef.current = null;
       setScanning(false);
-      alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
     },
   });
 
@@ -144,6 +163,9 @@ export function ScanPage() {
     }
     if (scanMode === 'single') {
       setScanResult(null);
+      setSingleWaitingActive(true);
+      setSingleWaitingResult(null);
+      setShowCamera(false);
     }
     setScanning(true);
     scanMutation.mutate(imageData);
@@ -197,6 +219,21 @@ export function ScanPage() {
     setShowCamera(true);
   };
 
+  const handleSingleScanCancel = () => {
+    singleScanAbortRef.current?.abort();
+    singleScanAbortRef.current = null;
+    setScanning(false);
+    setSingleWaitingActive(false);
+    setSingleWaitingResult(null);
+  };
+
+  const handleSingleScanComplete = () => {
+    if (!singleWaitingResult) return;
+    setScanResult(singleWaitingResult);
+    setSingleWaitingActive(false);
+    setSingleWaitingResult(null);
+  };
+
   const handleContinuousNext = () => {
     setShowCamera(true);
   };
@@ -243,6 +280,16 @@ export function ScanPage() {
         setBatchResult(result);
       } else {
         setScanResult(null);
+        if (scanMode === 'single') {
+          setSingleWaitingActive(true);
+          setSingleWaitingResult(null);
+          const controller = new AbortController();
+          singleScanAbortRef.current = controller;
+          const result = await scanService.scanSingle(file, controller.signal);
+          setSingleWaitingResult(result);
+          singleScanAbortRef.current = null;
+          return;
+        }
         const result = await scanService.scanSingle(file);
         if (scanMode === 'continuous') {
           addContinuousResult(result);
@@ -253,13 +300,25 @@ export function ScanPage() {
       }
     } catch (error) {
       console.error('Scan error:', error);
-      alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
+      const isCanceled = error instanceof Error && error.name === 'CanceledError';
+      if (!isCanceled) {
+        alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
+      }
+      if (scanMode === 'single') {
+        setSingleWaitingActive(false);
+        setSingleWaitingResult(null);
+      }
     } finally {
+      singleScanAbortRef.current = null;
       setScanning(false);
     }
   };
 
   const handleModeChange = (mode: ScanMode) => {
+    singleScanAbortRef.current?.abort();
+    singleScanAbortRef.current = null;
+    setSingleWaitingActive(false);
+    setSingleWaitingResult(null);
     setScanMode(mode);
     setScanResult(null);
     setSelectedTagIds([]);
@@ -309,6 +368,50 @@ export function ScanPage() {
         onClose={() => setShowCamera(false)}
         mode={scanMode === 'batch' ? 'batch' : 'single'}
       />
+    );
+  }
+
+  if (scanMode === 'single' && singleWaitingActive) {
+    const isAnalysisDone = Boolean(singleWaitingResult);
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header title="단건 스캔 대기" showBack />
+        <div className="p-4">
+          <div className="bg-white rounded-xl p-5 shadow-sm text-center">
+            {isAnalysisDone ? (
+              <>
+                <p className="text-lg font-semibold text-gray-900">분석이 완료되었습니다</p>
+                <p className="mt-2 text-sm text-gray-600">
+                  완료 버튼을 눌러 결과를 확인하거나 취소할 수 있습니다.
+                </p>
+              </>
+            ) : (
+              <>
+                <Loading size="lg" />
+                <p className="mt-4 text-lg font-semibold text-gray-900">와인을 분석하고 있습니다...</p>
+                <p className="mt-2 text-sm text-gray-600">
+                  취소하거나 분석이 끝날 때까지 이 화면에서 기다려주세요.
+                </p>
+              </>
+            )}
+
+            <div className="mt-5 space-y-2">
+              <Button variant="outline" className="w-full" onClick={handleSingleScanCancel}>
+                분석 취소
+              </Button>
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={handleSingleScanComplete}
+                disabled={!isAnalysisDone}
+              >
+                완료
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
