@@ -9,7 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Header } from '../components/layout';
 import { CameraView, ScanResultCard } from '../components/scan';
-import { Button, Loading, Modal } from '../components/common';
+import { Button, Modal } from '../components/common';
 import { scanService, wineService, tagService } from '../services';
 import { useScanStore } from '../stores';
 import type {
@@ -43,6 +43,7 @@ export function ScanPage() {
   const [selectedBatchIndexes, setSelectedBatchIndexes] = useState<number[]>([]);
   const [singleWaitingActive, setSingleWaitingActive] = useState(false);
   const [singleWaitingError, setSingleWaitingError] = useState<string | null>(null);
+  const [singleWaitingProgress, setSingleWaitingProgress] = useState(0);
   const singleScanAbortRef = useRef<AbortController | null>(null);
 
   const {
@@ -92,6 +93,7 @@ export function ScanPage() {
         addContinuousResult(result as ScanResult);
         setContinuousSessionActive(true);
       } else {
+        setSingleWaitingProgress(100);
         setScanResult(result as ScanResult);
         setSingleWaitingActive(false);
         setSingleWaitingError(null);
@@ -106,10 +108,10 @@ export function ScanPage() {
       const isCanceled = error instanceof Error && error.name === 'CanceledError';
       if (scanMode === 'single') {
         if (isCanceled) {
-          setSingleWaitingActive(false);
-          setSingleWaitingError(null);
+          resetSingleWaitingState();
         } else {
           setSingleWaitingError('분석에 실패했습니다. 다시 촬영하거나 종료해주세요.');
+          setSingleWaitingProgress(0);
         }
       } else if (!isCanceled) {
         alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
@@ -162,6 +164,25 @@ export function ScanPage() {
     setSelectedBatchIndexes(successIndexes);
   }, [batchResult]);
 
+  useEffect(() => {
+    if (!singleWaitingActive || singleWaitingError) return;
+
+    const timer = setInterval(() => {
+      setSingleWaitingProgress((prev) => {
+        if (prev >= 90) return 90;
+        return Math.min(prev + Math.random() * 3 + 1, 90);
+      });
+    }, 350);
+
+    return () => clearInterval(timer);
+  }, [singleWaitingActive, singleWaitingError]);
+
+  const resetSingleWaitingState = () => {
+    setSingleWaitingActive(false);
+    setSingleWaitingError(null);
+    setSingleWaitingProgress(0);
+  };
+
   const handleCapture = (imageData: string) => {
     if (scanMode === 'batch') {
       setBatchResult(null);
@@ -170,6 +191,7 @@ export function ScanPage() {
       setScanResult(null);
       setSingleWaitingActive(true);
       setSingleWaitingError(null);
+      setSingleWaitingProgress(0);
       setShowCamera(false);
     }
     setScanning(true);
@@ -228,18 +250,15 @@ export function ScanPage() {
     singleScanAbortRef.current?.abort();
     singleScanAbortRef.current = null;
     setScanning(false);
-    setSingleWaitingActive(false);
-    setSingleWaitingError(null);
+    resetSingleWaitingState();
   };
 
   const handleSingleScanEnd = () => {
-    setSingleWaitingActive(false);
-    setSingleWaitingError(null);
+    resetSingleWaitingState();
   };
 
   const handleSingleScanRetry = () => {
-    setSingleWaitingActive(false);
-    setSingleWaitingError(null);
+    resetSingleWaitingState();
     setShowCamera(true);
   };
 
@@ -292,9 +311,11 @@ export function ScanPage() {
         if (scanMode === 'single') {
           setSingleWaitingActive(true);
           setSingleWaitingError(null);
+          setSingleWaitingProgress(0);
           const controller = new AbortController();
           singleScanAbortRef.current = controller;
           const result = await scanService.scanSingle(file, controller.signal);
+          setSingleWaitingProgress(100);
           setScanResult(result);
           setSingleWaitingActive(false);
           setSingleWaitingError(null);
@@ -314,10 +335,10 @@ export function ScanPage() {
       const isCanceled = error instanceof Error && error.name === 'CanceledError';
       if (scanMode === 'single') {
         if (isCanceled) {
-          setSingleWaitingActive(false);
-          setSingleWaitingError(null);
+          resetSingleWaitingState();
         } else {
           setSingleWaitingError('분석에 실패했습니다. 다시 촬영하거나 종료해주세요.');
+          setSingleWaitingProgress(0);
         }
       } else if (!isCanceled) {
         alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
@@ -331,8 +352,7 @@ export function ScanPage() {
   const handleModeChange = (mode: ScanMode) => {
     singleScanAbortRef.current?.abort();
     singleScanAbortRef.current = null;
-    setSingleWaitingActive(false);
-    setSingleWaitingError(null);
+    resetSingleWaitingState();
     setScanMode(mode);
     setScanResult(null);
     setSelectedTagIds([]);
@@ -395,8 +415,17 @@ export function ScanPage() {
           <div className="bg-white rounded-xl p-5 shadow-sm text-center">
             {!hasSingleScanError ? (
               <>
-                <Loading size="lg" />
+                <ArrowPathIcon className="h-5 w-5 mx-auto text-wine-600 animate-spin" />
                 <p className="mt-4 text-lg font-semibold text-gray-900">와인을 분석하고 있습니다...</p>
+                <p className="mt-2 text-sm font-medium text-wine-600">
+                  진행률 {Math.round(singleWaitingProgress)}%
+                </p>
+                <div className="mt-2 w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-wine-600 h-full transition-all duration-300"
+                    style={{ width: `${singleWaitingProgress}%` }}
+                  />
+                </div>
                 <p className="mt-2 text-sm text-gray-600">
                   취소하거나 분석이 끝날 때까지 이 화면에서 기다려주세요.
                 </p>
@@ -431,11 +460,20 @@ export function ScanPage() {
   }
 
   if (isScanning || scanMutation.isPending) {
+    const scanningProgress = scanMode === 'batch' ? 70 : scanMode === 'continuous' ? 60 : 40;
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loading size="lg" />
+          <ArrowPathIcon className="h-5 w-5 mx-auto text-wine-600 animate-spin" />
           <p className="mt-4 text-gray-600">와인을 분석하고 있습니다...</p>
+          <p className="mt-2 text-sm font-medium text-wine-600">진행률 {scanningProgress}%</p>
+          <div className="mt-2 w-60 max-w-full bg-gray-200 rounded-full h-2 overflow-hidden mx-auto">
+            <div
+              className="bg-wine-600 h-full transition-all duration-300"
+              style={{ width: `${scanningProgress}%` }}
+            />
+          </div>
           <p className="text-sm text-gray-400 mt-1">잠시만 기다려주세요</p>
         </div>
       </div>
