@@ -15,11 +15,12 @@ export interface DuplicateCheckResult {
 }
 
 export const scanService = {
-  async scanSingle(imageFile: File): Promise<ScanResult> {
+  async scanSingle(imageFile: File, signal?: AbortSignal): Promise<ScanResult> {
     const formData = new FormData();
     formData.append('image', imageFile);
 
     const response = await api.post('/scan', formData, {
+      signal,
       headers: {
         'Content-Type': 'multipart/form-data',
       },
