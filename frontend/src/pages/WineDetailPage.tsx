@@ -58,6 +58,14 @@ export function WineDetailPage() {
     tag_ids: [],
   });
 
+  const invalidateWineQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
+    queryClient.invalidateQueries({ queryKey: ['user-wines'] });
+    queryClient.invalidateQueries({ queryKey: ['cellar-summary'] });
+    queryClient.invalidateQueries({ queryKey: ['expiring-wines'] });
+    queryClient.invalidateQueries({ queryKey: ['recent-wines'] });
+  };
+
   const { data: userWine, isLoading, error } = useQuery({
     queryKey: ['user-wine', id],
     queryFn: () => wineService.getWine(id!),
@@ -73,7 +81,7 @@ export function WineDetailPage() {
     mutationFn: ({ action, amount }: { action: 'increase' | 'decrease'; amount: number }) =>
       wineService.updateWineQuantity(id!, { action, amount }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
+      invalidateWineQueries();
     },
   });
 
@@ -81,7 +89,7 @@ export function WineDetailPage() {
     mutationFn: (data: { rating?: number; tasting_note?: string }) =>
       wineService.updateWineStatus(id!, { status: 'consumed', ...data }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
+      invalidateWineQueries();
       setShowConsumeModal(false);
     },
   });
@@ -96,7 +104,7 @@ export function WineDetailPage() {
   const updateWineMutation = useMutation({
     mutationFn: (data: UserWineUpdateRequest) => wineService.updateWine(id!, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
+      invalidateWineQueries();
       setShowEditModal(false);
     },
   });
@@ -447,7 +455,7 @@ export function WineDetailPage() {
             variant="primary"
             onClick={() => {
               wineService.updateWineStatus(id!, { status: 'gifted' }).then(() => {
-                queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
+                invalidateWineQueries();
                 setShowGiftModal(false);
               });
             }}
