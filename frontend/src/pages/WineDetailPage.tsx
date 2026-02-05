@@ -61,6 +61,9 @@ export function WineDetailPage() {
   const invalidateWineQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
     queryClient.invalidateQueries({ queryKey: ['user-wines'] });
+    queryClient.invalidateQueries({ queryKey: ['cellar-summary'] });
+    queryClient.invalidateQueries({ queryKey: ['expiring-wines'] });
+    queryClient.invalidateQueries({ queryKey: ['recent-wines'] });
   };
 
   const { data: userWine, isLoading, error } = useQuery({
