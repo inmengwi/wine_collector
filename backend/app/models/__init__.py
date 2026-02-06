@@ -6,6 +6,7 @@ from app.models.user_wine import UserWine, WineStatus
 from app.models.tag import Tag, TagType, UserWineTag
 from app.models.recommendation import Recommendation
 from app.models.scan_session import ScanSession
+from app.models.user_wine_status_history import UserWineStatusHistory
 
 __all__ = [
     "User",
@@ -19,4 +20,5 @@ __all__ = [
     "UserWineTag",
     "Recommendation",
     "ScanSession",
+    "UserWineStatusHistory",
 ]

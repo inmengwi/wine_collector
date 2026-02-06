@@ -46,6 +46,17 @@ export interface Tag {
   created_at: string;
 }
 
+export interface WineStatusHistory {
+  id: string;
+  status: 'consumed' | 'gifted';
+  event_date: string;
+  quantity: number;
+  rating: number | null;
+  note: string | null;
+  recipient: string | null;
+  created_at: string;
+}
+
 export interface UserWine {
   id: string;
   quantity: number;
@@ -61,6 +72,7 @@ export interface UserWine {
   updated_at: string;
   wine: Wine;
   tags: Tag[];
+  status_histories: WineStatusHistory[];
   drinking_status: DrinkingStatus | null;
 }
 
@@ -103,6 +115,7 @@ export interface WineStatusUpdateRequest {
   status: 'consumed' | 'gifted';
   quantity_change?: number;
   consumed_date?: string;
+  gifted_date?: string;
   rating?: number;
   tasting_note?: string;
   recipient?: string;

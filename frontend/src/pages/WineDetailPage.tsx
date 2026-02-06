@@ -48,6 +48,8 @@ export function WineDetailPage() {
 
   const [showConsumeModal, setShowConsumeModal] = useState(false);
   const [showGiftModal, setShowGiftModal] = useState(false);
+  const [consumedDate, setConsumedDate] = useState('');
+  const [giftedDate, setGiftedDate] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState<EditFormData>({
@@ -86,11 +88,22 @@ export function WineDetailPage() {
   });
 
   const consumeMutation = useMutation({
-    mutationFn: (data: { rating?: number; tasting_note?: string }) =>
+    mutationFn: (data: { rating?: number; tasting_note?: string; consumed_date?: string }) =>
       wineService.updateWineStatus(id!, { status: 'consumed', ...data }),
     onSuccess: () => {
       invalidateWineQueries();
       setShowConsumeModal(false);
+      setConsumedDate('');
+    },
+  });
+
+  const giftMutation = useMutation({
+    mutationFn: (data: { gifted_date?: string }) =>
+      wineService.updateWineStatus(id!, { status: 'gifted', ...data }),
+    onSuccess: () => {
+      invalidateWineQueries();
+      setShowGiftModal(false);
+      setGiftedDate('');
     },
   });
 
@@ -377,6 +390,23 @@ export function WineDetailPage() {
             </dl>
           </div>
 
+          {/* Status History */}
+          {userWine.status_histories.length > 0 && (
+            <div className="bg-white rounded-xl p-4">
+              <h2 className="text-sm font-medium text-gray-500 mb-3">마신/선물 이력</h2>
+              <ul className="space-y-2">
+                {userWine.status_histories.map((history) => (
+                  <li key={history.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">
+                      {history.status === 'consumed' ? '마심' : '선물'} · {history.quantity}병
+                    </span>
+                    <span className="text-gray-900">{formatDate(history.event_date)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Personal Note */}
           {userWine.personal_note && (
             <div className="bg-white rounded-xl p-4">
@@ -425,13 +455,22 @@ export function WineDetailPage() {
         title="와인 마시기"
       >
         <p className="text-gray-600 mb-4">이 와인을 마셨습니다로 기록할까요?</p>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">마신 날짜</label>
+          <input
+            type="date"
+            value={consumedDate}
+            onChange={(e) => setConsumedDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+          />
+        </div>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => setShowConsumeModal(false)} className="flex-1">
             취소
           </Button>
           <Button
             variant="primary"
-            onClick={() => consumeMutation.mutate({})}
+            onClick={() => consumeMutation.mutate({ consumed_date: consumedDate || undefined })}
             isLoading={consumeMutation.isPending}
             className="flex-1"
           >
@@ -447,18 +486,23 @@ export function WineDetailPage() {
         title="와인 선물하기"
       >
         <p className="text-gray-600 mb-4">이 와인을 선물했습니다로 기록할까요?</p>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">선물한 날짜</label>
+          <input
+            type="date"
+            value={giftedDate}
+            onChange={(e) => setGiftedDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-wine-500 focus:border-wine-500"
+          />
+        </div>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => setShowGiftModal(false)} className="flex-1">
             취소
           </Button>
           <Button
             variant="primary"
-            onClick={() => {
-              wineService.updateWineStatus(id!, { status: 'gifted' }).then(() => {
-                invalidateWineQueries();
-                setShowGiftModal(false);
-              });
-            }}
+            onClick={() => giftMutation.mutate({ gifted_date: giftedDate || undefined })}
+            isLoading={giftMutation.isPending}
             className="flex-1"
           >
             확인

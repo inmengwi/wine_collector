@@ -60,7 +60,7 @@ export const wineService = {
   async updateWineStatus(
     id: string,
     data: WineStatusUpdateRequest
-  ): Promise<{ id: string; quantity: number; status: string; consumed_count: number }> {
+  ): Promise<{ id: string; quantity: number; status: string; consumed_count: number; history_id: string; event_date: string }> {
     const response = await api.patch(`/wines/${id}/status`, data);
     return response.data.data;
   },
@@ -68,7 +68,7 @@ export const wineService = {
   async updateStatus(
     id: string,
     data: WineStatusUpdateRequest
-  ): Promise<{ id: string; quantity: number; status: string; consumed_count: number }> {
+  ): Promise<{ id: string; quantity: number; status: string; consumed_count: number; history_id: string; event_date: string }> {
     return this.updateWineStatus(id, data);
   },
 
