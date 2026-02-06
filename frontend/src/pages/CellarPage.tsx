@@ -12,7 +12,7 @@ import { Header } from '../components/layout';
 import { WineCard, WineListItem, WineFilter } from '../components/wine';
 import { Loading, EmptyState } from '../components/common';
 import { wineService, tagService } from '../services';
-import type { WineFilterParams } from '../types';
+import type { TagType, WineFilterParams } from '../types';
 
 type ViewMode = 'grid' | 'list';
 
@@ -87,23 +87,38 @@ export function CellarPage() {
     setSelectedTag(tagId === selectedTag ? null : tagId);
   };
 
-  const cellarTags = tags?.tags.filter(t => t.type === 'cellar') || [];
+  const tagTypeOrder: Record<TagType, number> = {
+    cellar: 0,
+    location: 1,
+    custom: 2,
+  };
+  const allTags = useMemo(
+    () =>
+      (tags?.tags ?? [])
+        .slice()
+        .sort((a, b) => {
+          const typeOrderDiff = tagTypeOrder[a.type] - tagTypeOrder[b.type];
+          if (typeOrderDiff !== 0) return typeOrderDiff;
+          return a.sort_order - b.sort_order;
+        }),
+    [tags]
+  );
   const initialTagCount = 6;
-  const hasMoreTags = cellarTags.length > initialTagCount;
+  const hasMoreTags = allTags.length > initialTagCount;
   const selectedTagItem = selectedTag
-    ? cellarTags.find((tag) => tag.id === selectedTag) ?? null
+    ? allTags.find((tag) => tag.id === selectedTag) ?? null
     : null;
   const visibleTags = useMemo(() => {
     if (showAllTags) {
-      return cellarTags;
+      return allTags;
     }
 
-    const baseTags = cellarTags.slice(0, initialTagCount);
+    const baseTags = allTags.slice(0, initialTagCount);
     if (selectedTagItem && !baseTags.some((tag) => tag.id === selectedTagItem.id)) {
       return [...baseTags, selectedTagItem];
     }
     return baseTags;
-  }, [cellarTags, showAllTags, selectedTagItem]);
+  }, [allTags, showAllTags, selectedTagItem]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -149,8 +164,8 @@ export function CellarPage() {
           </div>
         </div>
 
-        {/* Cellar Tags */}
-        {cellarTags.length > 0 && (
+        {/* Tags */}
+        {allTags.length > 0 && (
           <div className="px-4 py-2">
             <div className="flex items-start gap-2">
               <div
