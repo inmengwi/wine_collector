@@ -56,6 +56,7 @@ class WineService:
         country: str | None = None,
         grape: str | None = None,
         tag_id: UUID | None = None,
+        tag_ids: list[UUID] | None = None,
         drinking_window: Literal["now", "aging", "urgent"] | None = None,
         min_price: int | None = None,
         max_price: int | None = None,
@@ -96,8 +97,14 @@ class WineService:
         if grape:
             query = query.where(Wine.grape_variety.contains([grape]))
 
+        combined_tag_ids = set()
+        if tag_ids:
+            combined_tag_ids.update(tag_ids)
         if tag_id:
-            query = query.join(UserWineTag).where(UserWineTag.tag_id == tag_id)
+            combined_tag_ids.add(tag_id)
+
+        if combined_tag_ids:
+            query = query.join(UserWineTag).where(UserWineTag.tag_id.in_(combined_tag_ids))
 
         if min_price:
             query = query.where(UserWine.purchase_price >= min_price)

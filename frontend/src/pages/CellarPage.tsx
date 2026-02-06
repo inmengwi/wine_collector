@@ -12,7 +12,7 @@ import { Header } from '../components/layout';
 import { WineCard, WineListItem, WineFilter } from '../components/wine';
 import { Loading, EmptyState } from '../components/common';
 import { wineService, tagService } from '../services';
-import type { TagType, WineFilterParams } from '../types';
+import type { Tag, TagType, WineFilterParams } from '../types';
 
 type ViewMode = 'grid' | 'list';
 
@@ -21,9 +21,15 @@ export function CellarPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAllTags, setShowAllTags] = useState(false);
-  const [selectedTag, setSelectedTag] = useState<string | null>(
-    searchParams.get('tag_id')
-  );
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(() => {
+    const tagIdsParam = searchParams.get('tag_ids');
+    if (tagIdsParam) {
+      return tagIdsParam.split(',').map((id) => id.trim()).filter(Boolean);
+    }
+
+    const tagIdParam = searchParams.get('tag_id');
+    return tagIdParam ? [tagIdParam] : [];
+  });
 
   const hasExplicitStatusClear = searchParams.get('status_cleared') === '1';
 
@@ -35,8 +41,8 @@ export function CellarPage() {
     country: searchParams.get('country') || undefined,
     drinking_window: searchParams.get('drinking_window') as WineFilterParams['drinking_window'] || undefined,
     search: searchQuery || undefined,
-    tag_id: selectedTag || undefined,
-  }), [searchParams, searchQuery, selectedTag, hasExplicitStatusClear]);
+    tag_ids: selectedTagIds.length > 0 ? selectedTagIds.join(',') : undefined,
+  }), [searchParams, searchQuery, selectedTagIds, hasExplicitStatusClear]);
 
   const includeAllStatuses = hasExplicitStatusClear && !filters.status;
 
@@ -84,7 +90,16 @@ export function CellarPage() {
   };
 
   const handleTagSelect = (tagId: string | null) => {
-    setSelectedTag(tagId === selectedTag ? null : tagId);
+    if (!tagId) {
+      setSelectedTagIds([]);
+      return;
+    }
+
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((id) => id !== tagId)
+        : [...prev, tagId]
+    );
   };
 
   const tagTypeOrder: Record<TagType, number> = {
@@ -105,20 +120,24 @@ export function CellarPage() {
   );
   const initialTagCount = 6;
   const hasMoreTags = allTags.length > initialTagCount;
-  const selectedTagItem = selectedTag
-    ? allTags.find((tag) => tag.id === selectedTag) ?? null
-    : null;
+  const selectedTagItems = useMemo(
+    () =>
+      selectedTagIds
+        .map((tagId) => allTags.find((tag) => tag.id === tagId))
+        .filter((tag): tag is Tag => Boolean(tag)),
+    [allTags, selectedTagIds]
+  );
   const visibleTags = useMemo(() => {
     if (showAllTags) {
       return allTags;
     }
 
     const baseTags = allTags.slice(0, initialTagCount);
-    if (selectedTagItem && !baseTags.some((tag) => tag.id === selectedTagItem.id)) {
-      return [...baseTags, selectedTagItem];
-    }
-    return baseTags;
-  }, [allTags, showAllTags, selectedTagItem]);
+    const extraSelectedTags = selectedTagItems.filter(
+      (tag) => !baseTags.some((baseTag) => baseTag.id === tag.id)
+    );
+    return [...baseTags, ...extraSelectedTags];
+  }, [allTags, showAllTags, selectedTagItems]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -176,7 +195,7 @@ export function CellarPage() {
                 <button
                   onClick={() => handleTagSelect(null)}
                   className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    !selectedTag
+                    selectedTagIds.length === 0
                       ? 'bg-wine-600 text-white'
                       : 'bg-white text-gray-600 border border-gray-200'
                   }`}
@@ -188,7 +207,7 @@ export function CellarPage() {
                     key={tag.id}
                     onClick={() => handleTagSelect(tag.id)}
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1 ${
-                      selectedTag === tag.id
+                      selectedTagIds.includes(tag.id)
                         ? 'bg-wine-600 text-white'
                         : 'bg-white text-gray-600 border border-gray-200'
                     }`}
