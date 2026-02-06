@@ -20,6 +20,7 @@ export function CellarPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAllTags, setShowAllTags] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(
     searchParams.get('tag_id')
   );
@@ -87,6 +88,22 @@ export function CellarPage() {
   };
 
   const cellarTags = tags?.tags.filter(t => t.type === 'cellar') || [];
+  const initialTagCount = 6;
+  const hasMoreTags = cellarTags.length > initialTagCount;
+  const selectedTagItem = selectedTag
+    ? cellarTags.find((tag) => tag.id === selectedTag) ?? null
+    : null;
+  const visibleTags = useMemo(() => {
+    if (showAllTags) {
+      return cellarTags;
+    }
+
+    const baseTags = cellarTags.slice(0, initialTagCount);
+    if (selectedTagItem && !baseTags.some((tag) => tag.id === selectedTagItem.id)) {
+      return [...baseTags, selectedTagItem];
+    }
+    return baseTags;
+  }, [cellarTags, showAllTags, selectedTagItem]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -145,7 +162,7 @@ export function CellarPage() {
             >
               전체
             </button>
-            {cellarTags.map((tag) => (
+            {visibleTags.map((tag) => (
               <button
                 key={tag.id}
                 onClick={() => handleTagSelect(tag.id)}
@@ -163,6 +180,14 @@ export function CellarPage() {
                 <span className="text-xs opacity-70">({tag.wine_count})</span>
               </button>
             ))}
+            {hasMoreTags && (
+              <button
+                onClick={() => setShowAllTags((prev) => !prev)}
+                className="flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200"
+              >
+                {showAllTags ? '접기' : '더보기'}
+              </button>
+            )}
           </div>
         )}
       </div>
