@@ -75,6 +75,15 @@ export function CellarPage() {
     () => data?.pages.flatMap((page) => page.items) ?? [],
     [data]
   );
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    wines.forEach((wine) => {
+      wine.tags.forEach((tag) => {
+        counts[tag.id] = (counts[tag.id] ?? 0) + 1;
+      });
+    });
+    return counts;
+  }, [wines]);
 
   const handleFilterChange = (newFilters: WineFilterParams) => {
     const params = new URLSearchParams();
@@ -217,7 +226,9 @@ export function CellarPage() {
                       style={{ backgroundColor: tag.color }}
                     />
                     {tag.name}
-                    <span className="text-xs opacity-70">({tag.wine_count})</span>
+                    <span className="text-xs opacity-70">
+                      ({isLoading ? tag.wine_count : (tagCounts[tag.id] ?? 0)})
+                    </span>
                   </button>
                 ))}
               </div>
