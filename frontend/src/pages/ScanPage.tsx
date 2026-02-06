@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CameraIcon,
   PhotoIcon,
@@ -34,6 +34,7 @@ const WINE_TYPES: { value: WineType; label: string }[] = [
 
 export function ScanPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -121,9 +122,18 @@ export function ScanPage() {
     },
   });
 
+  const invalidateWineQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['user-wines'] });
+    queryClient.invalidateQueries({ queryKey: ['cellar-summary'] });
+    queryClient.invalidateQueries({ queryKey: ['expiring-wines'] });
+    queryClient.invalidateQueries({ queryKey: ['recent-wines'] });
+    queryClient.invalidateQueries({ queryKey: ['tags'] });
+  };
+
   const addWineMutation = useMutation({
     mutationFn: (request: UserWineCreateRequest) => wineService.createWine(request),
     onSuccess: (result) => {
+      invalidateWineQueries();
       navigate(`/wine/${result.id}`);
     },
     onError: (error) => {
@@ -141,6 +151,7 @@ export function ScanPage() {
       return results;
     },
     onSuccess: () => {
+      invalidateWineQueries();
       setBatchResult(null);
       clearContinuousResults();
       setSelectedTagIds([]);
