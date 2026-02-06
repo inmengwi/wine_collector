@@ -37,6 +37,8 @@ export function CellarPage() {
     tag_id: selectedTag || undefined,
   }), [searchParams, searchQuery, selectedTag, hasExplicitStatusClear]);
 
+  const includeAllStatuses = hasExplicitStatusClear && !filters.status;
+
   const { data: tags } = useQuery({
     queryKey: ['tags'],
     queryFn: () => tagService.getTags(),
@@ -51,7 +53,12 @@ export function CellarPage() {
   } = useInfiniteQuery({
     queryKey: ['user-wines', filters],
     queryFn: ({ pageParam = 1 }) =>
-      wineService.getUserWines({ ...filters, page: pageParam, size: 20 }),
+      wineService.getUserWines({
+        ...filters,
+        include_all_statuses: includeAllStatuses || undefined,
+        page: pageParam,
+        size: 20,
+      }),
     getNextPageParam: (lastPage) =>
       lastPage.pagination.has_next ? lastPage.pagination.page + 1 : undefined,
     initialPageParam: 1,

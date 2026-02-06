@@ -12,7 +12,9 @@ import type {
   WineFilterParams,
 } from '@/types';
 
-export interface WineListParams extends PaginationParams, SortParams, WineFilterParams {}
+export interface WineListParams extends PaginationParams, SortParams, WineFilterParams {
+  include_all_statuses?: boolean;
+}
 
 export const wineService = {
   async getWines(params: WineListParams = {}): Promise<PaginatedData<UserWineListItem>> {
