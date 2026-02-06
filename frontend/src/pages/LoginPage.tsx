@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Button, Input } from '../components/common';
@@ -11,11 +11,25 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [rememberEmail, setRememberEmail] = useState(false);
+
+  useEffect(() => {
+    const savedEmail = window.localStorage.getItem('rememberedEmail');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberEmail(true);
+    }
+  }, []);
 
   const loginMutation = useMutation({
     mutationFn: () => authService.login({ email, password }),
     onSuccess: (data) => {
       setAuth(data.user, data.access_token, data.refresh_token);
+      if (rememberEmail) {
+        window.localStorage.setItem('rememberedEmail', email);
+      } else {
+        window.localStorage.removeItem('rememberedEmail');
+      }
       navigate('/', { replace: true });
     },
     onError: () => {
@@ -82,6 +96,21 @@ export function LoginPage() {
             placeholder="비밀번호 입력"
             autoComplete="current-password"
           />
+
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-wine-600 focus:ring-wine-500"
+              checked={rememberEmail}
+              onChange={(e) => {
+                setRememberEmail(e.target.checked);
+                if (!e.target.checked) {
+                  window.localStorage.removeItem('rememberedEmail');
+                }
+              }}
+            />
+            아이디 기억하기
+          </label>
 
           {error && (
             <p className="text-sm text-red-600">{error}</p>
