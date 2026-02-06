@@ -26,7 +26,7 @@ export function CellarPage() {
 
   const filters: WineFilterParams = useMemo(() => ({
     type: searchParams.get('type') as WineFilterParams['type'] || undefined,
-    status: searchParams.get('status') as WineFilterParams['status'] || undefined,
+    status: searchParams.get('status') as WineFilterParams['status'] || 'owned',
     country: searchParams.get('country') || undefined,
     drinking_window: searchParams.get('drinking_window') as WineFilterParams['drinking_window'] || undefined,
     search: searchQuery || undefined,
