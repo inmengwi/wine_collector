@@ -51,6 +51,7 @@ class WineService:
         page: int = 1,
         size: int = 20,
         status: WineStatus | None = None,
+        include_all_statuses: bool = False,
         wine_type: WineType | None = None,
         country: str | None = None,
         grape: str | None = None,
@@ -78,10 +79,11 @@ class WineService:
         )
 
         # Apply filters
-        if status:
-            query = query.where(UserWine.status == status.value)
-        else:
-            query = query.where(UserWine.status == WineStatus.OWNED.value)
+        if not include_all_statuses:
+            if status:
+                query = query.where(UserWine.status == status.value)
+            else:
+                query = query.where(UserWine.status == WineStatus.OWNED.value)
 
         if wine_type:
             query = query.join(Wine).where(Wine.type == wine_type.value)
