@@ -151,43 +151,51 @@ export function CellarPage() {
 
         {/* Cellar Tags */}
         {cellarTags.length > 0 && (
-          <div className="px-4 py-2 flex gap-2 overflow-x-auto">
-            <button
-              onClick={() => handleTagSelect(null)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                !selectedTag
-                  ? 'bg-wine-600 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200'
-              }`}
-            >
-              전체
-            </button>
-            {visibleTags.map((tag) => (
-              <button
-                key={tag.id}
-                onClick={() => handleTagSelect(tag.id)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1 ${
-                  selectedTag === tag.id
-                    ? 'bg-wine-600 text-white'
-                    : 'bg-white text-gray-600 border border-gray-200'
+          <div className="px-4 py-2">
+            <div className="flex items-start gap-2">
+              <div
+                className={`flex gap-2 ${
+                  showAllTags ? 'flex-wrap' : 'overflow-x-auto'
                 }`}
               >
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: tag.color }}
-                />
-                {tag.name}
-                <span className="text-xs opacity-70">({tag.wine_count})</span>
-              </button>
-            ))}
-            {hasMoreTags && (
-              <button
-                onClick={() => setShowAllTags((prev) => !prev)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200"
-              >
-                {showAllTags ? '접기' : '더보기'}
-              </button>
-            )}
+                <button
+                  onClick={() => handleTagSelect(null)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    !selectedTag
+                      ? 'bg-wine-600 text-white'
+                      : 'bg-white text-gray-600 border border-gray-200'
+                  }`}
+                >
+                  전체
+                </button>
+                {visibleTags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    onClick={() => handleTagSelect(tag.id)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1 ${
+                      selectedTag === tag.id
+                        ? 'bg-wine-600 text-white'
+                        : 'bg-white text-gray-600 border border-gray-200'
+                    }`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: tag.color }}
+                    />
+                    {tag.name}
+                    <span className="text-xs opacity-70">({tag.wine_count})</span>
+                  </button>
+                ))}
+              </div>
+              {hasMoreTags && (
+                <button
+                  onClick={() => setShowAllTags((prev) => !prev)}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200"
+                >
+                  {showAllTags ? '접기' : '더보기'}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
