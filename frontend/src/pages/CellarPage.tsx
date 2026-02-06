@@ -24,14 +24,18 @@ export function CellarPage() {
     searchParams.get('tag_id')
   );
 
+  const hasExplicitStatusClear = searchParams.get('status_cleared') === '1';
+
   const filters: WineFilterParams = useMemo(() => ({
     type: searchParams.get('type') as WineFilterParams['type'] || undefined,
-    status: searchParams.get('status') as WineFilterParams['status'] || 'owned',
+    status:
+      (searchParams.get('status') as WineFilterParams['status'])
+      || (hasExplicitStatusClear ? undefined : 'owned'),
     country: searchParams.get('country') || undefined,
     drinking_window: searchParams.get('drinking_window') as WineFilterParams['drinking_window'] || undefined,
     search: searchQuery || undefined,
     tag_id: selectedTag || undefined,
-  }), [searchParams, searchQuery, selectedTag]);
+  }), [searchParams, searchQuery, selectedTag, hasExplicitStatusClear]);
 
   const { data: tags } = useQuery({
     queryKey: ['tags'],
@@ -63,6 +67,11 @@ export function CellarPage() {
     Object.entries(newFilters).forEach(([key, value]) => {
       if (value) params.set(key, value);
     });
+
+    if (!newFilters.status) {
+      params.set('status_cleared', '1');
+    }
+
     setSearchParams(params);
   };
 
