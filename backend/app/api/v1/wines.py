@@ -23,6 +23,24 @@ from app.services.wine_service import WineService
 router = APIRouter()
 
 
+def _parse_tag_ids(tag_ids: str | None) -> list[UUID] | None:
+    if not tag_ids:
+        return None
+
+    parsed: list[UUID] = []
+    for raw_id in tag_ids.split(","):
+        trimmed = raw_id.strip()
+        if trimmed:
+            try:
+                parsed.append(UUID(trimmed))
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid tag_ids value",
+                ) from exc
+    return parsed or None
+
+
 @router.get("", response_model=PaginatedResponse[UserWineListResponse])
 async def list_wines(
     current_user: CurrentUser,
@@ -35,6 +53,7 @@ async def list_wines(
     country: str | None = None,
     grape: str | None = None,
     tag_id: UUID | None = None,
+    tag_ids: str | None = None,
     drinking_window: Literal["now", "aging", "urgent"] | None = None,
     min_price: int | None = None,
     max_price: int | None = None,
@@ -54,6 +73,7 @@ async def list_wines(
         country=country,
         grape=grape,
         tag_id=tag_id,
+        tag_ids=_parse_tag_ids(tag_ids),
         drinking_window=drinking_window,
         min_price=min_price,
         max_price=max_price,

@@ -133,6 +133,7 @@ export interface WineFilterParams {
   country?: string;
   grape?: string;
   tag_id?: string;
+  tag_ids?: string;
   drinking_window?: 'now' | 'aging' | 'urgent';
   min_price?: number;
   max_price?: number;
