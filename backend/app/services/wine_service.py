@@ -1,6 +1,6 @@
 """Wine service."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Literal
 from uuid import UUID
 
@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.wine import Wine, WineType
 from app.models.user_wine import UserWine, WineStatus
+from app.models.user_wine_status_history import UserWineStatusHistory
 from app.models.tag import Tag, UserWineTag
 from app.models.user import User
 from app.schemas.wine import (
@@ -65,7 +66,11 @@ class WineService:
         # Base query
         query = (
             select(UserWine)
-            .options(selectinload(UserWine.wine), selectinload(UserWine.tags))
+            .options(
+                selectinload(UserWine.wine),
+                selectinload(UserWine.tags),
+                selectinload(UserWine.status_histories),
+            )
             .where(
                 UserWine.user_id == user_id,
                 UserWine.deleted_at.is_(None),
@@ -165,7 +170,11 @@ class WineService:
         """Get a specific user wine."""
         result = await self.db.execute(
             select(UserWine)
-            .options(selectinload(UserWine.wine), selectinload(UserWine.tags))
+            .options(
+                selectinload(UserWine.wine),
+                selectinload(UserWine.tags),
+                selectinload(UserWine.status_histories),
+            )
             .where(
                 UserWine.id == user_wine_id,
                 UserWine.user_id == user_id,
@@ -192,6 +201,7 @@ class WineService:
             "updated_at": user_wine.updated_at,
             "wine": user_wine.wine,
             "tags": user_wine.tags,
+            "status_histories": user_wine.status_histories,
             "drinking_status": self._get_drinking_status(user_wine.wine),
         }
 
@@ -347,12 +357,26 @@ class WineService:
         else:
             user_wine.quantity = new_quantity
 
-        # Save rating/note for consumed
+        event_date = date.today()
         if data.status == "consumed":
+            event_date = data.consumed_date or date.today()
             if data.rating:
                 user_wine.personal_rating = data.rating
             if data.tasting_note:
                 user_wine.personal_note = data.tasting_note
+        elif data.status == "gifted":
+            event_date = data.gifted_date or date.today()
+
+        history = UserWineStatusHistory(
+            user_wine_id=user_wine.id,
+            status=data.status,
+            event_date=event_date,
+            quantity=data.quantity_change,
+            rating=data.rating if data.status == "consumed" else None,
+            note=data.tasting_note,
+            recipient=data.recipient if data.status == "gifted" else None,
+        )
+        self.db.add(history)
 
         await self.db.commit()
 
@@ -361,6 +385,8 @@ class WineService:
             "quantity": user_wine.quantity,
             "status": user_wine.status,
             "consumed_count": data.quantity_change,
+            "history_id": history.id,
+            "event_date": history.event_date,
         }
 
     async def update_wine_quantity(

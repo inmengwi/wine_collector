@@ -95,6 +95,12 @@ class UserWine(Base):
         secondary="user_wine_tags",
         back_populates="user_wines",
     )
+    status_histories: Mapped[list["UserWineStatusHistory"]] = relationship(
+        "UserWineStatusHistory",
+        back_populates="user_wine",
+        cascade="all, delete-orphan",
+        order_by="desc(UserWineStatusHistory.event_date)",
+    )
 
     def __repr__(self) -> str:
         return f"<UserWine {self.id} - {self.wine_id}>"

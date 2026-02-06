@@ -135,6 +135,7 @@ class WineStatusUpdate(BaseModel):
     status: Literal["consumed", "gifted"]
     quantity_change: int = Field(default=1, ge=1)
     consumed_date: date | None = None
+    gifted_date: date | None = None
     rating: int | None = Field(None, ge=1, le=5)
     tasting_note: str | None = None
     recipient: str | None = None  # For gifted
@@ -145,6 +146,21 @@ class WineQuantityUpdate(BaseModel):
 
     action: Literal["increase", "decrease", "set"]
     amount: int = Field(..., ge=0)
+
+
+class WineStatusHistoryResponse(BaseModel):
+    """Wine status history item."""
+
+    id: UUID
+    status: Literal["consumed", "gifted"]
+    event_date: date
+    quantity: int
+    rating: int | None = None
+    note: str | None = None
+    recipient: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserWineResponse(BaseModel):
@@ -164,6 +180,7 @@ class UserWineResponse(BaseModel):
     updated_at: datetime
     wine: WineResponse
     tags: list[TagInWine] = []
+    status_histories: list[WineStatusHistoryResponse] = []
     drinking_status: str | None = None  # "aging", "optimal", "drink_soon", "urgent"
 
     model_config = ConfigDict(from_attributes=True)
