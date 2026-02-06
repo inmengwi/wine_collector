@@ -66,6 +66,7 @@ export function WineDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['cellar-summary'] });
     queryClient.invalidateQueries({ queryKey: ['expiring-wines'] });
     queryClient.invalidateQueries({ queryKey: ['recent-wines'] });
+    queryClient.invalidateQueries({ queryKey: ['tags'] });
   };
 
   const { data: userWine, isLoading, error } = useQuery({
@@ -110,6 +111,7 @@ export function WineDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => wineService.deleteWine(id!),
     onSuccess: () => {
+      invalidateWineQueries();
       navigate('/cellar', { replace: true });
     },
   });
