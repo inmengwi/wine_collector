@@ -64,21 +64,30 @@ class ScanPromptConfig:
 
 
 def _premium_single_prompt() -> str:
-    return """You are a Master Sommelier with expertise in reading wine labels from all regions worldwide.
+    return """You are a Master Sommelier with decades of expertise in identifying wines from every major and emerging wine region worldwide.
 
-Analyze this wine label image carefully. Read all visible text including fine print, back labels, and any certifications. Consider the label design, typography, and visual cues to identify the wine.
+## Label reading strategy
+1. First scan the entire image to locate the front label, back label, neck label, and any capsule markings.
+2. Read all visible text carefully — including fine print, legal text, certifications (e.g., Grand Cru Classé, Riserva, Reserva), and lot numbers.
+3. Use the label design, typography, crest, and color scheme as additional identification cues.
 
-For multilingual labels, read text in French, Italian, Spanish, German, Portuguese, and any other language present. Translate key terms to provide accurate structured data.
+## Handling image quality issues
+- If the image is blurry, tilted, or poorly lit, focus on the largest legible text first (wine name, producer) before attempting smaller details.
+- If the label is partially obscured (e.g., by a hand, reflection, or sticker), extract what is visible and infer the rest from your wine knowledge. Clearly lower the confidence score.
 
+## Multilingual label reading
+Wine labels frequently use French (Château, Domaine, Cru, Appellation Contrôlée), Italian (Denominazione, Riserva, Classico), Spanish (Crianza, Reserva, Denominación de Origen), German (Spätlese, Trocken, Qualitätswein), and Portuguese (Quinta, Reserva, Região Demarcada). Read and interpret these terms accurately to determine the wine's classification, region, and quality level.
+
+## Output format
 Extract the following information in JSON format:
 {
-  "name": "Full wine name as printed on the label",
-  "producer": "Winery/Producer/Domaine/Château name",
+  "name": "Full wine name exactly as printed on the label",
+  "producer": "Winery/Producer/Domaine/Château/Weingut name",
   "vintage": 2020,
   "grape_variety": ["Cabernet Sauvignon", "Merlot"],
-  "region": "Specific sub-region (e.g., Saint-Julien, Rutherford, Barolo)",
+  "region": "Specific sub-region (e.g., Saint-Julien, Rutherford, Barolo, Priorat)",
   "country": "Country of origin",
-  "appellation": "Official appellation/denomination (AOC, DOC, DOCG, AVA, etc.)",
+  "appellation": "Official appellation/denomination (AOC, DOC, DOCG, AVA, DO, VDP, etc.)",
   "abv": 13.5,
   "type": "red",
   "body": 4,
@@ -95,32 +104,51 @@ Extract the following information in JSON format:
   "confidence": 0.95
 }
 
-Field guidelines:
+## Field guidelines
 - "type": one of red, white, rose, sparkling, dessert, fortified
-- "body/tannin/acidity/sweetness": 1-5 scale, infer from grape, region, vintage if not on label
-- "confidence": 0-1, lower if the label is partially obscured, blurry, or you are guessing
-- Only include fields you can determine from the label or your wine knowledge
-- Return ONLY valid JSON, no additional text"""
+- "body/tannin/acidity/sweetness": 1-5 scale. Infer from grape variety, region, vintage, and classification if not printed on the label.
+- Only include fields you can determine from the label or reliably infer from your wine knowledge.
+
+## Confidence scoring
+- 0.90-1.0: Label clearly readable, wine positively identified
+- 0.70-0.89: Most text readable, minor details inferred from knowledge
+- 0.50-0.69: Partial label visible, significant inference required
+- 0.30-0.49: Only fragments readable, identification is a best guess
+- 0.01-0.29: Almost nothing readable, very low certainty
+
+Return ONLY valid JSON, no additional text."""
 
 
 def _premium_batch_prompt() -> str:
-    return """You are a Master Sommelier analyzing an image containing multiple wine bottles.
+    return """You are a Master Sommelier with decades of expertise in identifying wines from every major and emerging wine region worldwide.
 
-Carefully examine the entire image. Identify every wine bottle visible, even those partially obscured, at angles, or in the background. For each bottle, read all visible label text including fine print and back labels.
+## Image analysis strategy
+1. Scan the entire image systematically from left to right, top to bottom.
+2. Identify every wine bottle present — including those partially hidden behind other bottles, placed at angles, in the background, or only showing a side/back label.
+3. For each bottle, read all visible label text: front label, back label, neck label, and capsule markings.
+4. Use label design, typography, crest, and color scheme as additional identification cues.
 
-For multilingual labels, read text in French, Italian, Spanish, German, Portuguese, and any other language present.
+## Handling difficult conditions
+- **Overlapping bottles**: If bottles overlap, trace each bottle outline separately. Extract whatever text is visible for the obscured bottle and lower its confidence.
+- **Angled or rotated bottles**: Read text accounting for perspective distortion. Focus on the largest legible elements first.
+- **Poor lighting / reflections**: If glare or shadow obscures part of a label, extract the readable portions and infer the rest. Note this in a lower confidence score.
+- **Distant or small bottles**: If a bottle appears small in the image, attempt identification from the most prominent label features (producer logo, label color/shape).
 
+## Multilingual label reading
+Wine labels frequently use French (Château, Domaine, Cru, Appellation Contrôlée), Italian (Denominazione, Riserva, Classico), Spanish (Crianza, Reserva, Denominación de Origen), German (Spätlese, Trocken, Qualitätswein), and Portuguese (Quinta, Reserva, Região Demarcada). Read and interpret these terms accurately.
+
+## Output format
 Return a JSON array. For each detected bottle:
 [
   {
     "status": "success",
-    "name": "Full wine name as printed on the label",
-    "producer": "Winery/Producer name",
+    "name": "Full wine name exactly as printed on the label",
+    "producer": "Winery/Producer/Domaine/Château name",
     "vintage": 2020,
     "grape_variety": ["Cabernet Sauvignon"],
     "region": "Specific sub-region",
     "country": "Country of origin",
-    "appellation": "Official appellation if visible",
+    "appellation": "Official appellation/denomination if visible",
     "abv": 13.5,
     "type": "red",
     "body": 4,
@@ -139,23 +167,37 @@ Return a JSON array. For each detected bottle:
   },
   {
     "status": "failed",
-    "error": "Label too obscured to read",
-    "confidence": 0.1,
+    "error": "Label too obscured to read — only bottle shape visible",
+    "confidence": 0.05,
     "bounding_box": {"x": 350, "y": 50, "width": 200, "height": 400}
   }
 ]
 
-Field guidelines:
+## Field guidelines
 - "type": one of red, white, rose, sparkling, dessert, fortified
-- "body/tannin/acidity/sweetness": 1-5 scale, infer from grape, region, vintage
-- "confidence": 0-1 per bottle. Set lower for partially visible or guessed information
-- "bounding_box": approximate pixel coordinates of each bottle in the image
-- If a label is unreadable, use status "failed" with an error description
-- Return ONLY a valid JSON array, no additional text"""
+- "body/tannin/acidity/sweetness": 1-5 scale. Infer from grape, region, vintage, classification.
+- "bounding_box": approximate pixel coordinates of each bottle in the image.
+- If a label is completely unreadable, use status "failed" with a descriptive error.
+- Only include fields you can determine from the label or reliably infer.
+
+## Confidence scoring (per bottle)
+- 0.90-1.0: Label clearly readable, wine positively identified
+- 0.70-0.89: Most text readable, minor details inferred
+- 0.50-0.69: Partial label visible, significant inference required
+- 0.30-0.49: Only fragments readable, best guess identification
+- 0.01-0.29: Almost nothing readable, very low certainty
+
+Return ONLY a valid JSON array, no additional text."""
 
 
 def _standard_single_prompt() -> str:
-    return """Analyze this wine label image and extract the following information in JSON format:
+    return """You are a wine expert. Analyze this wine label image and extract information.
+
+Read all visible text on the label. For non-English labels (French, Italian, Spanish, German, etc.), interpret wine-specific terms (e.g., Château, Riserva, Crianza, Spätlese) to determine the classification and region.
+
+If the image is blurry or the label is partially obscured, extract what you can and lower the confidence score accordingly.
+
+Extract the following in JSON format:
 {
   "name": "Full wine name",
   "producer": "Winery/Producer name",
@@ -163,7 +205,7 @@ def _standard_single_prompt() -> str:
   "grape_variety": ["Cabernet Sauvignon", "Merlot"],
   "region": "Specific region (e.g., Margaux, Napa Valley)",
   "country": "Country of origin",
-  "appellation": "Official appellation if visible",
+  "appellation": "Official appellation if visible (AOC, DOC, AVA, etc.)",
   "abv": 13.5,
   "type": "red",
   "body": 4,
@@ -180,13 +222,21 @@ def _standard_single_prompt() -> str:
   "confidence": 0.95
 }
 
-Only include fields you can determine from the label or your knowledge. Return only valid JSON."""
+- "type": one of red, white, rose, sparkling, dessert, fortified
+- "body/tannin/acidity/sweetness": 1-5 scale, infer from grape and region if not on label
+- "confidence": 0.9+ if clearly readable, 0.7-0.89 if minor inference, 0.5-0.69 if partially visible, below 0.5 if mostly guessing
+- Only include fields you can determine from the label or your knowledge
+- Return ONLY valid JSON"""
 
 
 def _standard_batch_prompt() -> str:
-    return """Analyze this image containing multiple wine bottles. For each visible wine label, extract information.
+    return """You are a wine expert. Analyze this image containing multiple wine bottles and extract information for each one.
 
-Return a JSON array of objects:
+Identify every bottle visible in the image, including partially hidden or angled ones. Read all visible label text for each bottle. For non-English labels (French, Italian, Spanish, German, etc.), interpret wine-specific terms accurately.
+
+If bottles overlap or labels are partially obscured, extract what is visible and lower the confidence score for that bottle.
+
+Return a JSON array:
 [
   {
     "status": "success",
@@ -199,19 +249,29 @@ Return a JSON array of objects:
     "region": "Region",
     "appellation": "Appellation if visible",
     "abv": 13.5,
+    "body": 4,
+    "tannin": 4,
+    "acidity": 3,
+    "sweetness": 1,
+    "food_pairing": ["Grilled steak", "Lamb"],
+    "flavor_notes": ["Blackcurrant", "Cedar"],
+    "description": "Brief description",
     "confidence": 0.95,
     "bounding_box": {"x": 100, "y": 50, "width": 200, "height": 400}
   },
   {
     "status": "failed",
     "error": "Label obscured or unreadable",
+    "confidence": 0.1,
     "bounding_box": {"x": 350, "y": 50, "width": 200, "height": 400}
   }
 ]
 
 - "type": one of red, white, rose, sparkling, dessert, fortified
-- Include all wines visible in the image, even partially visible ones
-- Return only valid JSON array."""
+- "body/tannin/acidity/sweetness": 1-5 scale, infer from grape and region if not on label
+- "confidence": 0.9+ if clearly readable, 0.7-0.89 if minor inference, 0.5-0.69 if partially visible, below 0.5 if mostly guessing
+- If a label is unreadable, use status "failed" with an error description
+- Return ONLY a valid JSON array"""
 
 
 def _lite_single_prompt() -> str:
@@ -226,8 +286,9 @@ def _lite_single_prompt() -> str:
   "confidence": 0.9
 }
 
-"type": one of red, white, rose, sparkling, dessert, fortified.
-Only include fields visible on the label. Return only valid JSON."""
+- "type": one of red, white, rose, sparkling, dessert, fortified
+- "confidence": 0.9+ if label is clear, 0.5-0.89 if partially readable, below 0.5 if guessing
+- Only include fields visible on the label. Return only valid JSON."""
 
 
 def _lite_batch_prompt() -> str:
@@ -247,12 +308,15 @@ def _lite_batch_prompt() -> str:
   {
     "status": "failed",
     "error": "Unreadable",
+    "confidence": 0.1,
     "bounding_box": {"x": 350, "y": 50, "width": 200, "height": 400}
   }
 ]
 
-"type": one of red, white, rose, sparkling, dessert, fortified.
-Return only valid JSON array."""
+- "type": one of red, white, rose, sparkling, dessert, fortified
+- "confidence": 0.9+ if label is clear, 0.5-0.89 if partially readable, below 0.5 if guessing
+- Include all bottles even if partially visible
+- Return only valid JSON array."""
 
 
 # ---- tier -> config -------------------------------------------------------
