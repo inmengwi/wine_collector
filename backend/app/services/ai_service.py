@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from decimal import Decimal
 
 from app.config import settings
@@ -71,6 +72,21 @@ class AIService:
         self.logger.warning("Unknown text provider '%s'", provider_name)
         return None
 
+    @staticmethod
+    def _clean_json_string(text: str) -> str:
+        """Strip common AI response artifacts that break JSON parsing.
+
+        Handles:
+        - Single-line comments  (// ...)
+        - Trailing commas before } or ]
+        """
+        # Remove single-line comments (but not inside quoted strings)
+        # Match // only when NOT inside a JSON string value
+        cleaned = re.sub(r'(?<=[,\d\]\}\"\s])//[^\n]*', '', text)
+        # Remove trailing commas: , followed by optional whitespace then } or ]
+        cleaned = re.sub(r',\s*([}\]])', r'\1', cleaned)
+        return cleaned
+
     def _parse_json_object(self, response_text: str) -> dict | None:
         json_start = response_text.find("{")
         json_end = response_text.rfind("}") + 1
@@ -80,6 +96,11 @@ class AIService:
         json_str = response_text[json_start:json_end]
         try:
             return json.loads(json_str)
+        except json.JSONDecodeError:
+            pass
+        # Retry after cleaning comments / trailing commas
+        try:
+            return json.loads(self._clean_json_string(json_str))
         except json.JSONDecodeError:
             self.logger.error("AI response JSON parse failed: invalid object.")
             return None
@@ -93,6 +114,11 @@ class AIService:
         json_str = response_text[json_start:json_end]
         try:
             return json.loads(json_str)
+        except json.JSONDecodeError:
+            pass
+        # Retry after cleaning comments / trailing commas
+        try:
+            return json.loads(self._clean_json_string(json_str))
         except json.JSONDecodeError:
             self.logger.error("AI response JSON parse failed: invalid array.")
             return []
