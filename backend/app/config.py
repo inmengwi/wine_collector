@@ -53,10 +53,44 @@ class Settings(BaseSettings):
     # Anthropic API
     anthropic_api_key: str = ""
 
-    # AI Provider
+    # AI Provider (global default)
     ai_provider: str = "gemini"
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+
+    # Per-task AI model settings (override global default)
+    # Scan: vision model for wine label recognition
+    scan_ai_provider: str = ""  # Empty = use ai_provider
+    scan_ai_model: str = ""  # Empty = use provider default
+    # Recommendation: text model for pairing recommendations
+    recommendation_ai_provider: str = ""  # Empty = use ai_provider
+    recommendation_ai_model: str = ""  # Empty = use provider default
+
+    @property
+    def effective_scan_provider(self) -> str:
+        return self.scan_ai_provider or self.ai_provider
+
+    @property
+    def effective_scan_model(self) -> str:
+        if self.scan_ai_model:
+            return self.scan_ai_model
+        provider = self.effective_scan_provider.lower()
+        if provider == "gemini":
+            return self.gemini_model
+        return "claude-sonnet-4-20250514"
+
+    @property
+    def effective_recommendation_provider(self) -> str:
+        return self.recommendation_ai_provider or self.ai_provider
+
+    @property
+    def effective_recommendation_model(self) -> str:
+        if self.recommendation_ai_model:
+            return self.recommendation_ai_model
+        provider = self.effective_recommendation_provider.lower()
+        if provider == "gemini":
+            return self.gemini_model
+        return "claude-sonnet-4-20250514"
 
     # Storage
     storage_type: str = "r2"
