@@ -11,6 +11,38 @@ from .base import TextProvider, VisionProvider
 logger = logging.getLogger(__name__)
 
 
+def _create_model(model_name: str) -> genai.GenerativeModel:
+    """Create a GenerativeModel, disabling thinking for 2.5+ models.
+
+    Gemini 2.5+ models have thinking enabled by default. Thinking tokens
+    consume the max_output_tokens budget, starving the actual response.
+    We disable it by setting thinking_budget=0 via GenerationConfig at
+    model construction time.
+    """
+    # Attempt to build a GenerationConfig with thinking disabled.
+    # Older SDK versions don't support this, so fall back gracefully.
+    try:
+        gen_config = genai.GenerationConfig(
+            thinking_config={"thinking_budget": 0},
+        )
+        return genai.GenerativeModel(model_name, generation_config=gen_config)
+    except (TypeError, ValueError, AttributeError):
+        pass
+
+    # Second attempt: thinking_config might be a proper type
+    try:
+        if hasattr(genai.types, "ThinkingConfig"):
+            thinking_cfg = genai.types.ThinkingConfig(thinking_budget=0)
+            gen_config = genai.GenerationConfig(thinking_config=thinking_cfg)
+            return genai.GenerativeModel(model_name, generation_config=gen_config)
+    except (TypeError, ValueError, AttributeError):
+        pass
+
+    # Fallback: create without thinking config (older SDK / non-2.5 model)
+    logger.debug("Could not disable thinking for model %s; using defaults.", model_name)
+    return genai.GenerativeModel(model_name)
+
+
 class GeminiVisionProvider(VisionProvider):
     """Vision provider backed by Google's Gemini models."""
 
@@ -18,7 +50,7 @@ class GeminiVisionProvider(VisionProvider):
 
     def __init__(self, api_key: str, model: str) -> None:
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(model)
+        self.model = _create_model(model)
 
     async def generate_content(
         self,
@@ -41,19 +73,9 @@ class GeminiVisionProvider(VisionProvider):
         if image_part is None:
             image_part = {"mime_type": "image/jpeg", "data": image_content}
 
-        # Gemini 2.5+ models have "thinking" enabled by default.
-        # Thinking tokens consume the max_output_tokens budget, so we
-        # must either disable thinking or set a separate thinking budget
-        # to prevent the actual response from being truncated.
-        generation_config = {"max_output_tokens": max_tokens}
-        try:
-            generation_config["thinking_config"] = {"thinking_budget": 0}
-        except Exception:
-            pass
-
         response = self.model.generate_content(
             [prompt, image_part],
-            generation_config=generation_config,
+            generation_config={"max_output_tokens": max_tokens},
         )
 
         # Log finish reason for diagnostics
@@ -76,22 +98,16 @@ class GeminiTextProvider(TextProvider):
 
     def __init__(self, api_key: str, model: str) -> None:
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(model)
+        self.model = _create_model(model)
 
     async def generate_text(
         self,
         prompt: str,
         max_tokens: int,
     ) -> str:
-        generation_config = {"max_output_tokens": max_tokens}
-        try:
-            generation_config["thinking_config"] = {"thinking_budget": 0}
-        except Exception:
-            pass
-
         response = self.model.generate_content(
             prompt,
-            generation_config=generation_config,
+            generation_config={"max_output_tokens": max_tokens},
         )
 
         if response.candidates:
