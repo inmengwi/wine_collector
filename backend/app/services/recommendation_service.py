@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -24,6 +25,9 @@ from app.schemas.recommendation import (
 )
 from app.schemas.common import PaginatedResponse, PaginatedData, PaginationMeta
 from app.services.ai_service import AIService
+
+
+logger = logging.getLogger(__name__)
 
 
 class RecommendationService:
@@ -205,6 +209,22 @@ class RecommendationService:
             ai_result = await self.ai_service.get_pairing_recommendations(query, wines_data)
             is_cached = False
 
+            ai_recs = ai_result.get("recommendations", [])
+            if not ai_recs:
+                logger.debug(
+                    "AI returned no recommendations. query=%r, wines_count=%d, ai_result=%s",
+                    query,
+                    len(wines_data),
+                    json.dumps(ai_result, ensure_ascii=False, default=str),
+                )
+            else:
+                logger.debug(
+                    "AI returned %d recommendations. query=%r, ai_result=%s",
+                    len(ai_recs),
+                    query,
+                    json.dumps(ai_result, ensure_ascii=False, default=str),
+                )
+
             # Store in cache
             model_info = self.ai_service.get_recommendation_model_info()
             ai_model_str = f"{model_info['provider']}/{model_info['model']}"
@@ -225,6 +245,7 @@ class RecommendationService:
         for rec in ai_result.get("recommendations", [])[:preferences.max_results if preferences else 5]:
             user_wine_id = rec.get("wine_id")
             if not user_wine_id:
+                logger.debug("AI recommendation missing wine_id: %s", rec)
                 continue
 
             # Find the user wine
@@ -233,6 +254,9 @@ class RecommendationService:
                 None
             )
             if not user_wine:
+                logger.debug(
+                    "AI recommended wine_id=%s not found in user collection", user_wine_id
+                )
                 continue
 
             recommended_wine_ids.append(UUID(user_wine_id))

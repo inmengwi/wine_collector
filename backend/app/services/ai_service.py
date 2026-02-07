@@ -350,11 +350,17 @@ Return only valid JSON."""
                 prompt=prompt,
                 max_tokens=2000,
             )
+            self.logger.debug("Pairing AI raw response: %s", response_text)
 
             parsed = self._parse_json_object(response_text)
             if parsed:
                 return parsed
 
+            self.logger.debug(
+                "Pairing recommendation parse failed. response_length=%d, response_text=%s",
+                len(response_text) if response_text else 0,
+                response_text,
+            )
             return {"recommendations": [], "general_advice": None}
 
         except Exception as e:
