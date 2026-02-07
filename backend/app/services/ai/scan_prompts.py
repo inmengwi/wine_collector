@@ -242,19 +242,19 @@ _TIER_CONFIGS: dict[ModelTier, ScanPromptConfig] = {
         single_prompt=_premium_single_prompt(),
         batch_prompt=_premium_batch_prompt(),
         single_max_tokens=3000,
-        batch_max_tokens=4000,
+        batch_max_tokens=8000,
     ),
     ModelTier.STANDARD: ScanPromptConfig(
         single_prompt=_standard_single_prompt(),
         batch_prompt=_standard_batch_prompt(),
         single_max_tokens=2000,
-        batch_max_tokens=3000,
+        batch_max_tokens=6000,
     ),
     ModelTier.LITE: ScanPromptConfig(
         single_prompt=_lite_single_prompt(),
         batch_prompt=_lite_batch_prompt(),
         single_max_tokens=1000,
-        batch_max_tokens=2000,
+        batch_max_tokens=4000,
     ),
 }
 

@@ -10,69 +10,42 @@ from .base import TextProvider, VisionProvider
 
 logger = logging.getLogger(__name__)
 
-# Whether thinking was successfully disabled at model construction time.
-# If not, we must pass a larger max_output_tokens to account for thinking.
-_thinking_disabled: bool = False
 
+def _build_generation_config(max_tokens: int) -> dict | genai.GenerationConfig:
+    """Build a generation config that includes both max_output_tokens and
+    thinking_budget=0 for Gemini 2.5+ models.
 
-def _create_model(model_name: str) -> genai.GenerativeModel:
-    """Create a GenerativeModel, disabling thinking for 2.5+ models.
-
-    Gemini 2.5+ models have thinking enabled by default. Thinking tokens
-    consume the max_output_tokens budget, starving the actual response.
-    We disable it by setting thinking_budget=0 via GenerationConfig at
-    model construction time.
+    Tries to create a proper GenerationConfig object first; falls back to
+    a plain dict (which won't disable thinking but at least won't error).
     """
-    global _thinking_disabled
-
-    # Attempt 1: dict-style thinking_config
+    # Attempt 1: GenerationConfig with dict-style thinking_config
     try:
-        gen_config = genai.GenerationConfig(
+        return genai.GenerationConfig(
+            max_output_tokens=max_tokens,
             thinking_config={"thinking_budget": 0},
         )
-        model = genai.GenerativeModel(model_name, generation_config=gen_config)
-        _thinking_disabled = True
-        logger.info("Gemini model created with thinking disabled (dict config): %s", model_name)
-        return model
-    except (TypeError, ValueError, AttributeError) as e:
-        logger.debug("thinking_config dict failed: %s", e)
+    except (TypeError, ValueError, AttributeError):
+        pass
 
-    # Attempt 2: ThinkingConfig type
+    # Attempt 2: GenerationConfig with ThinkingConfig type
     try:
         if hasattr(genai.types, "ThinkingConfig"):
             thinking_cfg = genai.types.ThinkingConfig(thinking_budget=0)
-            gen_config = genai.GenerationConfig(thinking_config=thinking_cfg)
-            model = genai.GenerativeModel(model_name, generation_config=gen_config)
-            _thinking_disabled = True
-            logger.info("Gemini model created with thinking disabled (ThinkingConfig): %s", model_name)
-            return model
-    except (TypeError, ValueError, AttributeError) as e:
-        logger.debug("ThinkingConfig type failed: %s", e)
+            return genai.GenerationConfig(
+                max_output_tokens=max_tokens,
+                thinking_config=thinking_cfg,
+            )
+    except (TypeError, ValueError, AttributeError):
+        pass
 
-    # Fallback: no thinking control — must compensate with higher max_tokens
-    _thinking_disabled = False
+    # Fallback: plain dict without thinking control.
+    # Inflate tokens to compensate for thinking budget consumption.
     logger.warning(
-        "Could not disable thinking for model %s. "
-        "Output tokens will be inflated to compensate for thinking budget.",
-        model_name,
+        "Cannot disable thinking via GenerationConfig (SDK too old?). "
+        "Inflating max_output_tokens %d -> %d to compensate.",
+        max_tokens, max_tokens + 4096,
     )
-    return genai.GenerativeModel(model_name)
-
-
-def _effective_max_tokens(max_tokens: int) -> int:
-    """If thinking could not be disabled, inflate the budget to compensate.
-
-    Gemini thinking typically uses 1000-4000 tokens. We add a buffer of
-    4096 so the actual response still gets enough tokens.
-    """
-    if _thinking_disabled:
-        return max_tokens
-    inflated = max_tokens + 4096
-    logger.debug(
-        "Inflating max_output_tokens %d -> %d (thinking not disabled)",
-        max_tokens, inflated,
-    )
-    return inflated
+    return {"max_output_tokens": max_tokens + 4096}
 
 
 class GeminiVisionProvider(VisionProvider):
@@ -82,7 +55,7 @@ class GeminiVisionProvider(VisionProvider):
 
     def __init__(self, api_key: str, model: str) -> None:
         genai.configure(api_key=api_key)
-        self.model = _create_model(model)
+        self.model = genai.GenerativeModel(model)
 
     async def generate_content(
         self,
@@ -105,10 +78,10 @@ class GeminiVisionProvider(VisionProvider):
         if image_part is None:
             image_part = {"mime_type": "image/jpeg", "data": image_content}
 
-        effective = _effective_max_tokens(max_tokens)
+        gen_config = _build_generation_config(max_tokens)
         response = self.model.generate_content(
             [prompt, image_part],
-            generation_config={"max_output_tokens": effective},
+            generation_config=gen_config,
         )
 
         # Log finish reason for diagnostics
@@ -117,9 +90,8 @@ class GeminiVisionProvider(VisionProvider):
             finish_reason = getattr(candidate, "finish_reason", None)
             if finish_reason and str(finish_reason) not in ("1", "STOP", "FinishReason.STOP"):
                 logger.warning(
-                    "Gemini vision response truncated: finish_reason=%s, "
-                    "requested_max_tokens=%d, effective=%d",
-                    finish_reason, max_tokens, effective,
+                    "Gemini vision response truncated: finish_reason=%s, max_tokens=%d",
+                    finish_reason, max_tokens,
                 )
 
         return response.text or ""
@@ -132,17 +104,17 @@ class GeminiTextProvider(TextProvider):
 
     def __init__(self, api_key: str, model: str) -> None:
         genai.configure(api_key=api_key)
-        self.model = _create_model(model)
+        self.model = genai.GenerativeModel(model)
 
     async def generate_text(
         self,
         prompt: str,
         max_tokens: int,
     ) -> str:
-        effective = _effective_max_tokens(max_tokens)
+        gen_config = _build_generation_config(max_tokens)
         response = self.model.generate_content(
             prompt,
-            generation_config={"max_output_tokens": effective},
+            generation_config=gen_config,
         )
 
         if response.candidates:
@@ -150,9 +122,8 @@ class GeminiTextProvider(TextProvider):
             finish_reason = getattr(candidate, "finish_reason", None)
             if finish_reason and str(finish_reason) not in ("1", "STOP", "FinishReason.STOP"):
                 logger.warning(
-                    "Gemini text response truncated: finish_reason=%s, "
-                    "requested_max_tokens=%d, effective=%d",
-                    finish_reason, max_tokens, effective,
+                    "Gemini text response truncated: finish_reason=%s, max_tokens=%d",
+                    finish_reason, max_tokens,
                 )
 
         return response.text or ""
