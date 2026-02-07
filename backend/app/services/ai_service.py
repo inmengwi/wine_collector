@@ -73,6 +73,13 @@ class AIService:
         return None
 
     @staticmethod
+    def _strip_markdown_fences(text: str) -> str:
+        """Remove markdown code fences (```json ... ```) from AI responses."""
+        stripped = re.sub(r'^```(?:json)?\s*\n?', '', text.strip())
+        stripped = re.sub(r'\n?```\s*$', '', stripped)
+        return stripped
+
+    @staticmethod
     def _clean_json_string(text: str) -> str:
         """Strip common AI response artifacts that break JSON parsing.
 
@@ -87,13 +94,32 @@ class AIService:
         cleaned = re.sub(r',\s*([}\]])', r'\1', cleaned)
         return cleaned
 
+    @staticmethod
+    def _repair_truncated_array(text: str) -> str:
+        """Attempt to repair a JSON array truncated by max_tokens.
+
+        Closes any unclosed strings, objects and the outer array bracket
+        so that already-complete elements can still be recovered.
+        """
+        # Strip any trailing incomplete key-value or string
+        # Work backwards: remove the last incomplete element after the last '},'
+        last_complete = text.rfind("},")
+        if last_complete == -1:
+            # Try finding a single complete object ending with '}'
+            last_complete = text.rfind("}")
+            if last_complete == -1:
+                return text
+            return text[: last_complete + 1] + "]"
+        return text[: last_complete + 1] + "]"
+
     def _parse_json_object(self, response_text: str) -> dict | None:
-        json_start = response_text.find("{")
-        json_end = response_text.rfind("}") + 1
+        text = self._strip_markdown_fences(response_text)
+        json_start = text.find("{")
+        json_end = text.rfind("}") + 1
         if json_start == -1 or json_end <= json_start:
             self.logger.error("AI response JSON parse failed: no object found.")
             return None
-        json_str = response_text[json_start:json_end]
+        json_str = text[json_start:json_end]
         try:
             return json.loads(json_str)
         except json.JSONDecodeError:
@@ -106,22 +132,35 @@ class AIService:
             return None
 
     def _parse_json_array(self, response_text: str) -> list[dict]:
-        json_start = response_text.find("[")
-        json_end = response_text.rfind("]") + 1
-        if json_start == -1 or json_end <= json_start:
+        text = self._strip_markdown_fences(response_text)
+        json_start = text.find("[")
+        json_end = text.rfind("]") + 1
+        if json_start == -1:
             self.logger.error("AI response JSON parse failed: no array found.")
             return []
-        json_str = response_text[json_start:json_end]
-        try:
-            return json.loads(json_str)
-        except json.JSONDecodeError:
-            pass
-        # Retry after cleaning comments / trailing commas
-        try:
-            return json.loads(self._clean_json_string(json_str))
-        except json.JSONDecodeError:
-            self.logger.error("AI response JSON parse failed: invalid array.")
-            return []
+
+        # If no closing bracket, the response was likely truncated
+        has_closing_bracket = json_end > json_start
+        json_str = text[json_start:json_end] if has_closing_bracket else text[json_start:]
+
+        for attempt, s in enumerate([
+            json_str,
+            self._clean_json_string(json_str),
+            self._repair_truncated_array(self._clean_json_string(json_str)),
+        ]):
+            try:
+                result = json.loads(s)
+                if attempt > 0:
+                    self.logger.info(
+                        "AI response JSON recovered (attempt %d): %d items parsed",
+                        attempt + 1, len(result),
+                    )
+                return result
+            except json.JSONDecodeError:
+                continue
+
+        self.logger.error("AI response JSON parse failed: invalid array.")
+        return []
 
     def get_scan_model_info(self) -> dict:
         """Return current scan model provider, model name, and capability tier."""
