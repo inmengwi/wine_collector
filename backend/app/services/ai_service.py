@@ -143,6 +143,12 @@ class AIService:
         has_closing_bracket = json_end > json_start
         json_str = text[json_start:json_end] if has_closing_bracket else text[json_start:]
 
+        if not has_closing_bracket:
+            self.logger.warning(
+                "AI response has no closing ']' — likely truncated (len=%d chars)",
+                len(response_text),
+            )
+
         for attempt, s in enumerate([
             json_str,
             self._clean_json_string(json_str),
@@ -155,11 +161,19 @@ class AIService:
                         "AI response JSON recovered (attempt %d): %d items parsed",
                         attempt + 1, len(result),
                     )
+                else:
+                    self.logger.debug(
+                        "AI response JSON parsed: %d items", len(result),
+                    )
                 return result
             except json.JSONDecodeError:
                 continue
 
-        self.logger.error("AI response JSON parse failed: invalid array.")
+        self.logger.error(
+            "AI response JSON parse failed: invalid array. Response length=%d chars, "
+            "first 500 chars: %s",
+            len(response_text), response_text[:500],
+        )
         return []
 
     def get_scan_model_info(self) -> dict:
