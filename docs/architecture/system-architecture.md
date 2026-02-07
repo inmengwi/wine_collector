@@ -165,7 +165,7 @@ Phase 2: 모바일 앱 추가
 | **Web Frontend** | React | 18+ | 컴포넌트 기반, React Native 전환 용이 |
 | **Frontend Language** | TypeScript | 5.0+ | 타입 안전성, 개발 생산성 |
 | **Mobile (Phase 2)** | React Native | - | 웹 코드/지식 재활용 가능 |
-| **AI/Vision** | Claude API | - | 라벨 인식 + 자연어 페어링 추천 |
+| **AI/Vision** | Claude API, Gemini API | - | 라벨 인식 + 자연어 페어링 추천 |
 | **Object Storage** | Cloudflare R2 | - | S3 호환, 비용 효율적 |
 | **Hosting** | Render | - | 간편한 배포, PostgreSQL 관리형 |
 
@@ -189,6 +189,7 @@ backend/
 │   │   │   ├── scan.py      # 스캔 API
 │   │   │   ├── recommendations.py  # 추천 API
 │   │   │   ├── tags.py      # 태그 API
+│   │   │   ├── dashboard.py # 대시보드 API
 │   │   │   └── auth.py      # 인증 API
 │   │   └── deps.py          # 의존성 주입
 │   │
@@ -196,11 +197,16 @@ backend/
 │   │   ├── __init__.py
 │   │   ├── user.py
 │   │   ├── wine.py
+│   │   ├── recommendation.py
+│   │   ├── scan_session.py
 │   │   ├── user_wine.py
+│   │   ├── user_wine_status_history.py
 │   │   └── tag.py
 │   │
 │   ├── schemas/             # Pydantic 스키마
 │   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── common.py
 │   │   ├── wine.py
 │   │   ├── scan.py
 │   │   ├── recommendation.py
@@ -208,10 +214,13 @@ backend/
 │   │
 │   ├── services/            # 비즈니스 로직
 │   │   ├── __init__.py
+│   │   ├── auth_service.py
+│   │   ├── dashboard_service.py
 │   │   ├── wine_service.py
 │   │   ├── scan_service.py
-│   │   ├── ai_service.py    # Claude API 연동
+│   │   ├── ai_service.py    # Claude/Gemini API 연동
 │   │   ├── recommendation_service.py
+│   │   ├── tag_service.py
 │   │   └── storage_service.py  # R2 연동
 │   │
 │   └── utils/
@@ -238,6 +247,7 @@ pydantic-settings>=2.0.0
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 anthropic>=0.18.0
+google-generativeai>=0.4.1
 boto3>=1.28.0
 python-multipart>=0.0.6
 httpx>=0.24.0

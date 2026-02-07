@@ -260,7 +260,69 @@ GET /auth/me
 
 ---
 
-### 2.6 소셜 로그인
+### 2.6 프로필 수정
+
+사용자 프로필 정보를 수정합니다.
+
+```
+PATCH /auth/me
+```
+
+#### Request Body
+```json
+{
+  "name": "김와인",
+  "profile_image": "https://storage.winecollector.app/profiles/user123.jpg"
+}
+```
+
+#### Response (200 OK)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "name": "김와인",
+    "profile_image": "https://storage.winecollector.app/profiles/user123.jpg",
+    "is_verified": true,
+    "created_at": "2024-01-15T09:30:00Z",
+    "last_login_at": "2024-01-20T14:00:00Z"
+  },
+  "message": "프로필이 수정되었습니다."
+}
+```
+
+---
+
+### 2.7 비밀번호 변경
+
+현재 로그인한 사용자의 비밀번호를 변경합니다.
+
+```
+POST /auth/password
+```
+
+#### Request Body
+```json
+{
+  "current_password": "OldPassword123!",
+  "new_password": "NewPassword456!"
+}
+```
+
+#### Response (200 OK)
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "비밀번호가 변경되었습니다."
+}
+```
+
+---
+
+### 2.8 소셜 로그인
 
 소셜 계정으로 로그인/회원가입합니다.
 
@@ -1324,6 +1386,9 @@ GET /dashboard/expiring
 ---
 
 ## 8. 사용자 API (Users)
+
+> 현재 구현된 프로필 수정/비밀번호 변경 기능은 Auth API(`/auth/me`, `/auth/password`)로 제공됩니다.  
+> 아래 Users API 항목은 향후 확장 시 제공 예정입니다.
 
 ### 8.1 프로필 수정
 
