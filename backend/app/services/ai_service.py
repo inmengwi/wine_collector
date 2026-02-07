@@ -155,6 +155,7 @@ class AIService:
                 prompt=cfg.single_prompt,
                 max_tokens=cfg.single_max_tokens,
             )
+            self.logger.debug("Single scan AI raw response: %s", response_text)
             parsed = self._parse_json_object(response_text)
             if parsed:
                 return parsed
@@ -185,6 +186,7 @@ class AIService:
                 prompt=cfg.batch_prompt,
                 max_tokens=cfg.batch_max_tokens,
             )
+            self.logger.debug("Batch scan AI raw response: %s", response_text)
             return self._parse_json_array(response_text)
 
         except Exception as e:
