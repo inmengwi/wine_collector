@@ -271,7 +271,7 @@ class ScanService:
         image_urls.append(image_url)
 
         scan_session.image_urls = image_urls
-        scan_session.wine_data = merged_wine_info
+        scan_session.wine_data = self._sanitize_for_json(merged_wine_info)
         scan_session.confidence = confidence
         scan_session.existing_wine_id = existing_wine_id
         scan_session.is_duplicate = is_duplicate
@@ -346,7 +346,7 @@ class ScanService:
             user_id=user_id,
             scan_id=scan_id,
             image_urls=image_urls,
-            wine_data=wine_data,
+            wine_data=self._sanitize_for_json(wine_data),
             confidence=confidence,
             existing_wine_id=existing_wine_id,
             is_duplicate=is_duplicate,
@@ -362,6 +362,23 @@ class ScanService:
             )
         )
         return result.scalar_one_or_none()
+
+    @staticmethod
+    def _sanitize_for_json(data: dict) -> dict:
+        """Convert Decimal values to float so the dict is JSONB-serializable."""
+        sanitized = {}
+        for key, value in data.items():
+            if isinstance(value, Decimal):
+                sanitized[key] = float(value)
+            elif isinstance(value, dict):
+                sanitized[key] = ScanService._sanitize_for_json(value)
+            elif isinstance(value, list):
+                sanitized[key] = [
+                    float(v) if isinstance(v, Decimal) else v for v in value
+                ]
+            else:
+                sanitized[key] = value
+        return sanitized
 
     @staticmethod
     def _merge_wine_info(existing: dict, new: dict) -> dict:
