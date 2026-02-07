@@ -28,10 +28,9 @@ _MODEL_TIER_MAP: dict[str, ModelTier] = {
     "claude-sonnet-4-5-20250929": ModelTier.STANDARD,
     "claude-haiku-4-5-20251001": ModelTier.LITE,
     # Google Gemini
-    "gemini-2.5-pro": ModelTier.PREMIUM,
-    "gemini-2.5-flash": ModelTier.STANDARD,
-    "gemini-2.0-flash": ModelTier.STANDARD,
-    "gemini-2.0-flash-lite": ModelTier.LITE,
+    "gemini-3-pro-preview": ModelTier.PREMIUM,
+    "gemini-3-flash-preview": ModelTier.STANDARD,
+    "gemini-2.5-flash": ModelTier.LITE,
 }
 
 
