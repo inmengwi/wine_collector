@@ -13,6 +13,7 @@ from app.services.ai.providers import (
     TextProvider,
     VisionProvider,
 )
+from app.services.ai.scan_prompts import get_scan_prompt_config, resolve_model_tier
 
 
 class AIService:
@@ -33,10 +34,13 @@ class AIService:
             settings.effective_recommendation_provider,
             settings.effective_recommendation_model,
         )
+        self.scan_prompt_config = get_scan_prompt_config(settings.effective_scan_model)
+        scan_tier = resolve_model_tier(settings.effective_scan_model)
         self.logger.info(
-            "AI service initialized: scan=%s/%s, recommendation=%s/%s",
+            "AI service initialized: scan=%s/%s (tier=%s), recommendation=%s/%s",
             settings.effective_scan_provider,
             settings.effective_scan_model,
+            scan_tier.value,
             settings.effective_recommendation_provider,
             settings.effective_recommendation_model,
         )
@@ -94,10 +98,11 @@ class AIService:
             return []
 
     def get_scan_model_info(self) -> dict:
-        """Return current scan model provider and model name."""
+        """Return current scan model provider, model name, and capability tier."""
         return {
             "provider": settings.effective_scan_provider,
             "model": settings.effective_scan_model,
+            "tier": resolve_model_tier(settings.effective_scan_model).value,
         }
 
     def get_recommendation_model_info(self) -> dict:
@@ -108,42 +113,21 @@ class AIService:
         }
 
     async def analyze_wine_label(self, image_content: bytes) -> dict | None:
-        """Analyze a wine label image and extract information."""
+        """Analyze a wine label image and extract information.
+
+        The prompt depth and token budget are determined by the configured
+        scan model's capability tier (premium / standard / lite).
+        """
         if not self.scan_provider:
             self.logger.warning("Scan AI provider is not configured; skipping analysis.")
             return None
 
         try:
+            cfg = self.scan_prompt_config
             response_text = await self.scan_provider.generate_content(
                 image_content=image_content,
-                prompt="""Analyze this wine label image and extract the following information in JSON format:
-
-{
-  "name": "Full wine name",
-  "producer": "Winery/Producer name",
-  "vintage": 2020,  // Year as integer, null if non-vintage
-  "grape_variety": ["Cabernet Sauvignon", "Merlot"],  // Array of grape varieties
-  "region": "Specific region (e.g., Margaux, Napa Valley)",
-  "country": "Country of origin",
-  "appellation": "Official appellation if visible",
-  "abv": 13.5,  // Alcohol percentage as decimal
-  "type": "red",  // One of: red, white, rose, sparkling, dessert, fortified
-  "body": 4,  // 1-5 scale
-  "tannin": 4,  // 1-5 scale (for red wines)
-  "acidity": 3,  // 1-5 scale
-  "sweetness": 1,  // 1-5 scale
-  "food_pairing": ["Grilled steak", "Lamb", "Aged cheese"],
-  "flavor_notes": ["Blackcurrant", "Cedar", "Tobacco"],
-  "serving_temp_min": 16,  // Celsius
-  "serving_temp_max": 18,  // Celsius
-  "drinking_window_start": 2025,  // Year
-  "drinking_window_end": 2040,  // Year
-  "description": "Brief description of the wine",
-  "confidence": 0.95  // Your confidence in the recognition (0-1)
-}
-
-Only include fields you can determine from the label or your knowledge. Return only valid JSON.""",
-                max_tokens=2000,
+                prompt=cfg.single_prompt,
+                max_tokens=cfg.single_max_tokens,
             )
             parsed = self._parse_json_object(response_text)
             if parsed:
@@ -159,38 +143,21 @@ Only include fields you can determine from the label or your knowledge. Return o
             return None
 
     async def analyze_batch_wine_labels(self, image_content: bytes) -> list[dict]:
-        """Analyze multiple wine labels in a single image."""
+        """Analyze multiple wine labels in a single image.
+
+        The prompt depth and token budget are determined by the configured
+        scan model's capability tier (premium / standard / lite).
+        """
         if not self.scan_provider:
             self.logger.warning("Scan AI provider is not configured; skipping batch analysis.")
             return []
 
         try:
+            cfg = self.scan_prompt_config
             response_text = await self.scan_provider.generate_content(
                 image_content=image_content,
-                prompt="""Analyze this image containing multiple wine bottles. For each visible wine label, extract information.
-
-Return a JSON array of objects:
-[
-  {
-    "status": "success",
-    "name": "Wine name",
-    "producer": "Producer",
-    "vintage": 2020,
-    "type": "red",
-    "country": "France",
-    "region": "Bordeaux",
-    "confidence": 0.95,
-    "bounding_box": {"x": 100, "y": 50, "width": 200, "height": 400}
-  },
-  {
-    "status": "failed",
-    "error": "Label obscured or unreadable",
-    "bounding_box": {"x": 350, "y": 50, "width": 200, "height": 400}
-  }
-]
-
-Return only valid JSON array.""",
-                max_tokens=4000,
+                prompt=cfg.batch_prompt,
+                max_tokens=cfg.batch_max_tokens,
             )
             return self._parse_json_array(response_text)
 

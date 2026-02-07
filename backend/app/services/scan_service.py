@@ -131,6 +131,15 @@ class ScanService:
         for idx, wine_info in enumerate(wines_info):
             if wine_info.get("status") == "success":
                 success_count += 1
+                # Build taste profile if any taste fields are present
+                taste_profile = None
+                if any(wine_info.get(k) for k in ("body", "tannin", "acidity", "sweetness")):
+                    taste_profile = TasteProfile(
+                        body=wine_info.get("body"),
+                        tannin=wine_info.get("tannin"),
+                        acidity=wine_info.get("acidity"),
+                        sweetness=wine_info.get("sweetness"),
+                    )
                 results.append(
                     ScanResultItem(
                         index=idx,
@@ -143,7 +152,17 @@ class ScanService:
                             grape_variety=wine_info.get("grape_variety"),
                             region=wine_info.get("region"),
                             country=wine_info.get("country"),
+                            appellation=wine_info.get("appellation"),
+                            abv=wine_info.get("abv"),
                             type=wine_info.get("type", "red"),
+                            taste_profile=taste_profile,
+                            food_pairing=wine_info.get("food_pairing"),
+                            flavor_notes=wine_info.get("flavor_notes"),
+                            serving_temp_min=wine_info.get("serving_temp_min"),
+                            serving_temp_max=wine_info.get("serving_temp_max"),
+                            drinking_window_start=wine_info.get("drinking_window_start"),
+                            drinking_window_end=wine_info.get("drinking_window_end"),
+                            description=wine_info.get("description"),
                         ),
                         bounding_box=wine_info.get("bounding_box"),
                     )
