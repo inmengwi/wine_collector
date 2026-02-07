@@ -137,41 +137,21 @@ def _premium_batch_prompt() -> str:
 Interpret French (Château, Domaine, AOC), Italian (Riserva, DOCG), Spanish (Crianza, DO), German (Spätlese, VDP) terms accurately.
 
 ## Output — core identification fields only
-Return a JSON array with ONLY these fields per bottle:
-[
-  {
-    "status": "success",
-    "name": "Full wine name as printed on the label",
-    "producer": "Winery/Producer name",
-    "vintage": 2020,
-    "grape_variety": ["Cabernet Sauvignon"],
-    "type": "red",
-    "country": "Country",
-    "region": "Sub-region",
-    "appellation": "AOC/DOC/AVA if visible",
-    "abv": 13.5,
-    "confidence": 0.95,
-    "bounding_box": {"x": 100, "y": 50, "width": 200, "height": 400}
-  },
-  {
-    "status": "failed",
-    "error": "Label too obscured to read",
-    "confidence": 0.05,
-    "bounding_box": {"x": 350, "y": 50, "width": 200, "height": 400}
-  }
-]
+Return a COMPACT JSON array (no newlines, no indentation) with ONLY these fields per bottle:
+
+[{"status":"success","name":"Wine name","producer":"Producer","vintage":2020,"grape_variety":["Cabernet Sauvignon"],"type":"red","country":"France","region":"Bordeaux","appellation":"AOC","abv":13.5,"confidence":0.95},{"status":"failed","error":"Label obscured","confidence":0.05}]
 
 - "type": one of red, white, rose, sparkling, dessert, fortified
-- Do NOT include taste profile, food pairing, flavor notes, or description — those will be enriched later.
+- Do NOT include taste profile, food pairing, flavor notes, or description.
+- Omit fields with null values to save space.
 
 ## Confidence scoring (per bottle)
 - 0.90-1.0: Label clearly readable, wine positively identified
 - 0.70-0.89: Most text readable, minor details inferred
 - 0.50-0.69: Partial label visible, significant inference required
-- 0.30-0.49: Only fragments readable, best guess
-- 0.01-0.29: Almost nothing readable
+- below 0.50: Mostly guessing
 
-Return ONLY a valid JSON array, no additional text."""
+CRITICAL: Return compact single-line JSON array only. No markdown fences, no newlines in JSON."""
 
 
 def _standard_single_prompt() -> str:
@@ -216,36 +196,16 @@ Extract the following in JSON format:
 def _standard_batch_prompt() -> str:
     return """You are a wine expert. Identify every wine bottle in this image.
 
-Read all visible label text for each bottle. For non-English labels (French, Italian, Spanish, German, etc.), interpret wine-specific terms accurately. If bottles overlap or labels are partially obscured, lower the confidence.
+Read all visible label text for each bottle. For non-English labels, interpret wine-specific terms accurately. If labels are partially obscured, lower the confidence.
 
-Return a JSON array with core identification fields only:
-[
-  {
-    "status": "success",
-    "name": "Full wine name",
-    "producer": "Producer name",
-    "vintage": 2020,
-    "grape_variety": ["Cabernet Sauvignon"],
-    "type": "red",
-    "country": "Country",
-    "region": "Region",
-    "appellation": "Appellation if visible",
-    "abv": 13.5,
-    "confidence": 0.95,
-    "bounding_box": {"x": 100, "y": 50, "width": 200, "height": 400}
-  },
-  {
-    "status": "failed",
-    "error": "Label obscured or unreadable",
-    "confidence": 0.1,
-    "bounding_box": {"x": 350, "y": 50, "width": 200, "height": 400}
-  }
-]
+Return a COMPACT JSON array (no newlines, no indentation) with core fields only:
+
+[{"status":"success","name":"Wine name","producer":"Producer","vintage":2020,"grape_variety":["Cabernet Sauvignon"],"type":"red","country":"Country","region":"Region","appellation":"Appellation","abv":13.5,"confidence":0.95},{"status":"failed","error":"Label obscured","confidence":0.1}]
 
 - "type": one of red, white, rose, sparkling, dessert, fortified
-- "confidence": 0.9+ if clearly readable, 0.7-0.89 if minor inference, 0.5-0.69 if partially visible, below 0.5 if mostly guessing
-- Do NOT include taste profile, food pairing, flavor notes, or description.
-- Return ONLY a valid JSON array"""
+- "confidence": 0.9+ clearly readable, 0.7-0.89 minor inference, below 0.7 partial/guessing
+- Omit fields with null values. Do NOT include taste, pairing, or description.
+- CRITICAL: Return compact single-line JSON array only. No markdown fences, no newlines in JSON."""
 
 
 def _lite_single_prompt() -> str:
@@ -266,29 +226,13 @@ def _lite_single_prompt() -> str:
 
 
 def _lite_batch_prompt() -> str:
-    return """List all wine bottles in this image as a JSON array:
-[
-  {
-    "status": "success",
-    "name": "Wine name",
-    "producer": "Producer",
-    "vintage": 2020,
-    "type": "red",
-    "country": "Country",
-    "region": "Region",
-    "confidence": 0.9
-  },
-  {
-    "status": "failed",
-    "error": "Unreadable",
-    "confidence": 0.1
-  }
-]
+    return """List all wine bottles in this image as a compact JSON array (no newlines):
+
+[{"status":"success","name":"Wine name","producer":"Producer","vintage":2020,"type":"red","country":"Country","region":"Region","confidence":0.9},{"status":"failed","error":"Unreadable","confidence":0.1}]
 
 - "type": one of red, white, rose, sparkling, dessert, fortified
-- "confidence": 0.9+ if clear, 0.5-0.89 if partial, below 0.5 if guessing
-- Include all bottles even if partially visible
-- Return only valid JSON array."""
+- Omit fields with null values. Include all bottles even if partially visible.
+- Return compact single-line JSON array only. No markdown fences."""
 
 
 # ---- tier -> config -------------------------------------------------------
