@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     recommendation_ai_provider: str = ""  # Empty = use ai_provider
     recommendation_ai_model: str = ""  # Empty = use provider default
 
+    # Recommendation cache
+    recommendation_cache_ttl_hours: int = 24  # Cache expiry in hours
+
     @property
     def effective_scan_provider(self) -> str:
         return self.scan_ai_provider or self.ai_provider

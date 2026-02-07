@@ -45,6 +45,7 @@ class RecommendationResponse(BaseModel):
     recommendations: list[RecommendationItem]
     general_advice: str | None = None
     no_match_alternatives: str | None = None
+    cached: bool = False
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

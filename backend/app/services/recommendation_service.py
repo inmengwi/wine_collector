@@ -1,17 +1,21 @@
 """Recommendation service."""
 
+import hashlib
+import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.models.wine import Wine
 from app.models.user_wine import UserWine
 from app.models.recommendation import Recommendation
+from app.models.recommendation_cache import RecommendationCache
 from app.schemas.recommendation import (
     RecommendationPreferences,
     RecommendationResponse,
@@ -45,6 +49,82 @@ class RecommendationService:
         else:
             return "can_wait"
 
+    @staticmethod
+    def _normalize_query(query: str) -> str:
+        """Normalize query text for consistent cache keys."""
+        return query.strip().lower()
+
+    @staticmethod
+    def _build_wine_collection_hash(user_wines: list, wine_types_filter: list[str] | None = None) -> str:
+        """Build a hash representing the current wine collection state.
+
+        Includes wine IDs and quantities so the cache auto-invalidates
+        when the collection changes (wine added, removed, or consumed).
+        """
+        wine_data = sorted(
+            [(str(uw.wine_id), uw.quantity) for uw in user_wines],
+            key=lambda x: x[0],
+        )
+        payload = json.dumps({"wines": wine_data, "filter": sorted(wine_types_filter) if wine_types_filter else None})
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+    @staticmethod
+    def _build_cache_key(
+        user_id: UUID,
+        query_type: str,
+        normalized_query: str,
+        wine_collection_hash: str,
+    ) -> str:
+        """Build the final cache key hash."""
+        raw = f"{user_id}:{query_type}:{normalized_query}:{wine_collection_hash}"
+        return hashlib.sha256(raw.encode()).hexdigest()
+
+    async def _lookup_cache(self, cache_key: str) -> RecommendationCache | None:
+        """Look up a valid (non-expired) cache entry."""
+        ttl_hours = settings.recommendation_cache_ttl_hours
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=ttl_hours)
+
+        result = await self.db.execute(
+            select(RecommendationCache).where(
+                RecommendationCache.cache_key == cache_key,
+                RecommendationCache.created_at >= cutoff,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def _store_cache(
+        self,
+        cache_key: str,
+        user_id: UUID,
+        query_type: str,
+        query_text: str,
+        wine_collection_hash: str,
+        ai_result: dict,
+        ai_model: str,
+    ) -> None:
+        """Store an AI result in the cache."""
+        cache_entry = RecommendationCache(
+            user_id=user_id,
+            cache_key=cache_key,
+            query_type=query_type,
+            query_text=query_text,
+            wine_collection_hash=wine_collection_hash,
+            ai_result=ai_result,
+            ai_model=ai_model,
+        )
+        self.db.add(cache_entry)
+
+    async def _bump_cache_hit(self, cache_entry: RecommendationCache) -> None:
+        """Increment hit count and update last_hit_at."""
+        await self.db.execute(
+            update(RecommendationCache)
+            .where(RecommendationCache.id == cache_entry.id)
+            .values(
+                hit_count=RecommendationCache.hit_count + 1,
+                last_hit_at=func.now(),
+            )
+        )
+
     async def get_recommendations(
         self,
         user_id: UUID,
@@ -66,7 +146,9 @@ class RecommendationService:
         )
 
         # Apply wine type filter if specified
+        wine_types_filter = None
         if preferences and preferences.wine_types:
+            wine_types_filter = preferences.wine_types
             wine_query = wine_query.join(Wine).where(
                 Wine.type.in_(preferences.wine_types)
             )
@@ -75,7 +157,6 @@ class RecommendationService:
         user_wines = result.scalars().all()
 
         if not user_wines:
-            # No wines available
             recommendation_id = uuid.uuid4()
             return RecommendationResponse(
                 recommendation_id=recommendation_id,
@@ -86,30 +167,56 @@ class RecommendationService:
                 created_at=datetime.utcnow(),
             )
 
-        # Prepare wine data for AI
-        wines_data = []
-        for uw in user_wines:
-            wine = uw.wine
-            wines_data.append({
-                "id": str(uw.id),
-                "name": wine.name,
-                "vintage": wine.vintage,
-                "type": wine.type,
-                "country": wine.country,
-                "region": wine.region,
-                "grape_variety": wine.grape_variety,
-                "body": wine.body,
-                "tannin": wine.tannin,
-                "acidity": wine.acidity,
-                "sweetness": wine.sweetness,
-                "food_pairing": wine.food_pairing,
-                "flavor_notes": wine.flavor_notes,
-                "drinking_window_end": wine.drinking_window_end,
-                "quantity": uw.quantity,
-            })
+        # Build cache key
+        normalized_query = self._normalize_query(query)
+        wine_collection_hash = self._build_wine_collection_hash(user_wines, wine_types_filter)
+        cache_key = self._build_cache_key(user_id, query_type, normalized_query, wine_collection_hash)
 
-        # Get AI recommendations
-        ai_result = await self.ai_service.get_pairing_recommendations(query, wines_data)
+        # Check cache
+        cached = await self._lookup_cache(cache_key)
+        if cached:
+            ai_result = cached.ai_result
+            await self._bump_cache_hit(cached)
+            is_cached = True
+        else:
+            # Prepare wine data for AI
+            wines_data = []
+            for uw in user_wines:
+                wine = uw.wine
+                wines_data.append({
+                    "id": str(uw.id),
+                    "name": wine.name,
+                    "vintage": wine.vintage,
+                    "type": wine.type,
+                    "country": wine.country,
+                    "region": wine.region,
+                    "grape_variety": wine.grape_variety,
+                    "body": wine.body,
+                    "tannin": wine.tannin,
+                    "acidity": wine.acidity,
+                    "sweetness": wine.sweetness,
+                    "food_pairing": wine.food_pairing,
+                    "flavor_notes": wine.flavor_notes,
+                    "drinking_window_end": wine.drinking_window_end,
+                    "quantity": uw.quantity,
+                })
+
+            # Get AI recommendations
+            ai_result = await self.ai_service.get_pairing_recommendations(query, wines_data)
+            is_cached = False
+
+            # Store in cache
+            model_info = self.ai_service.get_recommendation_model_info()
+            ai_model_str = f"{model_info['provider']}/{model_info['model']}"
+            await self._store_cache(
+                cache_key=cache_key,
+                user_id=user_id,
+                query_type=query_type,
+                query_text=normalized_query,
+                wine_collection_hash=wine_collection_hash,
+                ai_result=ai_result,
+                ai_model=ai_model_str,
+            )
 
         # Build recommendation items
         recommendations = []
@@ -156,6 +263,7 @@ class RecommendationService:
 
         # Save recommendation to history
         recommendation_id = uuid.uuid4()
+        model_info = self.ai_service.get_recommendation_model_info()
         recommendation_record = Recommendation(
             id=recommendation_id,
             user_id=user_id,
@@ -163,7 +271,7 @@ class RecommendationService:
             query_text=query,
             result=ai_result,
             recommended_wine_ids=recommended_wine_ids,
-            ai_model=f"{self.ai_service.get_recommendation_model_info()['provider']}/{self.ai_service.get_recommendation_model_info()['model']}",
+            ai_model=f"{model_info['provider']}/{model_info['model']}",
         )
         self.db.add(recommendation_record)
         await self.db.commit()
@@ -174,6 +282,7 @@ class RecommendationService:
             recommendations=recommendations,
             general_advice=ai_result.get("general_advice"),
             no_match_alternatives=None,
+            cached=is_cached,
             created_at=datetime.utcnow(),
         )
 
