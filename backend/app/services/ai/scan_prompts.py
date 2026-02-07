@@ -120,72 +120,56 @@ Return ONLY valid JSON, no additional text."""
 
 
 def _premium_batch_prompt() -> str:
-    return """You are a Master Sommelier with decades of expertise in identifying wines from every major and emerging wine region worldwide.
+    return """You are a Master Sommelier. Identify every wine bottle in this image.
 
 ## Image analysis strategy
 1. Scan the entire image systematically from left to right, top to bottom.
-2. Identify every wine bottle present — including those partially hidden behind other bottles, placed at angles, in the background, or only showing a side/back label.
-3. For each bottle, read all visible label text: front label, back label, neck label, and capsule markings.
+2. Identify every wine bottle present — including those partially hidden, at angles, in the background, or only showing a side/back label.
+3. For each bottle, read all visible label text: front label, back label, neck label.
 4. Use label design, typography, crest, and color scheme as additional identification cues.
 
 ## Handling difficult conditions
-- **Overlapping bottles**: If bottles overlap, trace each bottle outline separately. Extract whatever text is visible for the obscured bottle and lower its confidence.
-- **Angled or rotated bottles**: Read text accounting for perspective distortion. Focus on the largest legible elements first.
-- **Poor lighting / reflections**: If glare or shadow obscures part of a label, extract the readable portions and infer the rest. Note this in a lower confidence score.
-- **Distant or small bottles**: If a bottle appears small in the image, attempt identification from the most prominent label features (producer logo, label color/shape).
+- **Overlapping bottles**: Trace each bottle outline separately. Lower confidence for obscured ones.
+- **Angled or rotated bottles**: Focus on the largest legible elements first.
+- **Poor lighting / reflections**: Extract readable portions and lower confidence.
 
-## Multilingual label reading
-Wine labels frequently use French (Château, Domaine, Cru, Appellation Contrôlée), Italian (Denominazione, Riserva, Classico), Spanish (Crianza, Reserva, Denominación de Origen), German (Spätlese, Trocken, Qualitätswein), and Portuguese (Quinta, Reserva, Região Demarcada). Read and interpret these terms accurately.
+## Multilingual labels
+Interpret French (Château, Domaine, AOC), Italian (Riserva, DOCG), Spanish (Crianza, DO), German (Spätlese, VDP) terms accurately.
 
-## Output format
-Return a JSON array. For each detected bottle:
+## Output — core identification fields only
+Return a JSON array with ONLY these fields per bottle:
 [
   {
     "status": "success",
-    "name": "Full wine name exactly as printed on the label",
-    "producer": "Winery/Producer/Domaine/Château name",
+    "name": "Full wine name as printed on the label",
+    "producer": "Winery/Producer name",
     "vintage": 2020,
     "grape_variety": ["Cabernet Sauvignon"],
-    "region": "Specific sub-region",
-    "country": "Country of origin",
-    "appellation": "Official appellation/denomination if visible",
-    "abv": 13.5,
     "type": "red",
-    "body": 4,
-    "tannin": 4,
-    "acidity": 3,
-    "sweetness": 1,
-    "food_pairing": ["Grilled steak", "Lamb"],
-    "flavor_notes": ["Blackcurrant", "Cedar"],
-    "serving_temp_min": 16,
-    "serving_temp_max": 18,
-    "drinking_window_start": 2025,
-    "drinking_window_end": 2040,
-    "description": "Brief description",
+    "country": "Country",
+    "region": "Sub-region",
+    "appellation": "AOC/DOC/AVA if visible",
+    "abv": 13.5,
     "confidence": 0.95,
     "bounding_box": {"x": 100, "y": 50, "width": 200, "height": 400}
   },
   {
     "status": "failed",
-    "error": "Label too obscured to read — only bottle shape visible",
+    "error": "Label too obscured to read",
     "confidence": 0.05,
     "bounding_box": {"x": 350, "y": 50, "width": 200, "height": 400}
   }
 ]
 
-## Field guidelines
 - "type": one of red, white, rose, sparkling, dessert, fortified
-- "body/tannin/acidity/sweetness": 1-5 scale. Infer from grape, region, vintage, classification.
-- "bounding_box": approximate pixel coordinates of each bottle in the image.
-- If a label is completely unreadable, use status "failed" with a descriptive error.
-- Only include fields you can determine from the label or reliably infer.
+- Do NOT include taste profile, food pairing, flavor notes, or description — those will be enriched later.
 
 ## Confidence scoring (per bottle)
 - 0.90-1.0: Label clearly readable, wine positively identified
 - 0.70-0.89: Most text readable, minor details inferred
 - 0.50-0.69: Partial label visible, significant inference required
-- 0.30-0.49: Only fragments readable, best guess identification
-- 0.01-0.29: Almost nothing readable, very low certainty
+- 0.30-0.49: Only fragments readable, best guess
+- 0.01-0.29: Almost nothing readable
 
 Return ONLY a valid JSON array, no additional text."""
 
@@ -230,13 +214,11 @@ Extract the following in JSON format:
 
 
 def _standard_batch_prompt() -> str:
-    return """You are a wine expert. Analyze this image containing multiple wine bottles and extract information for each one.
+    return """You are a wine expert. Identify every wine bottle in this image.
 
-Identify every bottle visible in the image, including partially hidden or angled ones. Read all visible label text for each bottle. For non-English labels (French, Italian, Spanish, German, etc.), interpret wine-specific terms accurately.
+Read all visible label text for each bottle. For non-English labels (French, Italian, Spanish, German, etc.), interpret wine-specific terms accurately. If bottles overlap or labels are partially obscured, lower the confidence.
 
-If bottles overlap or labels are partially obscured, extract what is visible and lower the confidence score for that bottle.
-
-Return a JSON array:
+Return a JSON array with core identification fields only:
 [
   {
     "status": "success",
@@ -249,13 +231,6 @@ Return a JSON array:
     "region": "Region",
     "appellation": "Appellation if visible",
     "abv": 13.5,
-    "body": 4,
-    "tannin": 4,
-    "acidity": 3,
-    "sweetness": 1,
-    "food_pairing": ["Grilled steak", "Lamb"],
-    "flavor_notes": ["Blackcurrant", "Cedar"],
-    "description": "Brief description",
     "confidence": 0.95,
     "bounding_box": {"x": 100, "y": 50, "width": 200, "height": 400}
   },
@@ -268,9 +243,8 @@ Return a JSON array:
 ]
 
 - "type": one of red, white, rose, sparkling, dessert, fortified
-- "body/tannin/acidity/sweetness": 1-5 scale, infer from grape and region if not on label
 - "confidence": 0.9+ if clearly readable, 0.7-0.89 if minor inference, 0.5-0.69 if partially visible, below 0.5 if mostly guessing
-- If a label is unreadable, use status "failed" with an error description
+- Do NOT include taste profile, food pairing, flavor notes, or description.
 - Return ONLY a valid JSON array"""
 
 
@@ -292,7 +266,7 @@ def _lite_single_prompt() -> str:
 
 
 def _lite_batch_prompt() -> str:
-    return """List all wine bottles visible in this image as a JSON array:
+    return """List all wine bottles in this image as a JSON array:
 [
   {
     "status": "success",
@@ -302,19 +276,17 @@ def _lite_batch_prompt() -> str:
     "type": "red",
     "country": "Country",
     "region": "Region",
-    "confidence": 0.9,
-    "bounding_box": {"x": 100, "y": 50, "width": 200, "height": 400}
+    "confidence": 0.9
   },
   {
     "status": "failed",
     "error": "Unreadable",
-    "confidence": 0.1,
-    "bounding_box": {"x": 350, "y": 50, "width": 200, "height": 400}
+    "confidence": 0.1
   }
 ]
 
 - "type": one of red, white, rose, sparkling, dessert, fortified
-- "confidence": 0.9+ if label is clear, 0.5-0.89 if partially readable, below 0.5 if guessing
+- "confidence": 0.9+ if clear, 0.5-0.89 if partial, below 0.5 if guessing
 - Include all bottles even if partially visible
 - Return only valid JSON array."""
 
@@ -326,19 +298,19 @@ _TIER_CONFIGS: dict[ModelTier, ScanPromptConfig] = {
         single_prompt=_premium_single_prompt(),
         batch_prompt=_premium_batch_prompt(),
         single_max_tokens=3000,
-        batch_max_tokens=8000,
+        batch_max_tokens=4000,
     ),
     ModelTier.STANDARD: ScanPromptConfig(
         single_prompt=_standard_single_prompt(),
         batch_prompt=_standard_batch_prompt(),
         single_max_tokens=2000,
-        batch_max_tokens=5000,
+        batch_max_tokens=3000,
     ),
     ModelTier.LITE: ScanPromptConfig(
         single_prompt=_lite_single_prompt(),
         batch_prompt=_lite_batch_prompt(),
         single_max_tokens=1000,
-        batch_max_tokens=3000,
+        batch_max_tokens=2000,
     ),
 }
 
