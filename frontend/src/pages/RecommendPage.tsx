@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   SparklesIcon,
   MagnifyingGlassIcon,
@@ -10,7 +10,7 @@ import {
 import { Header } from '../components/layout';
 import { WineCard } from '../components/wine';
 import { Loading, EmptyState, Button, Badge } from '../components/common';
-import { recommendationService } from '../services';
+import { recommendationService, aiSettingsService } from '../services';
 import type { RecommendationResult, RecommendationRequest } from '../types';
 
 type QueryType = 'food' | 'occasion' | 'mood';
@@ -38,6 +38,11 @@ export function RecommendPage() {
   const [result, setResult] = useState<RecommendationResult | null>(null);
 
   const selectedOption = queryTypeOptions.find((o) => o.type === queryType)!;
+
+  const { data: aiSettings } = useQuery({
+    queryKey: ['ai-settings'],
+    queryFn: () => aiSettingsService.getSettings(),
+  });
 
   const recommendMutation = useMutation({
     mutationFn: (request: RecommendationRequest) =>
@@ -228,6 +233,11 @@ export function RecommendPage() {
               음식, 상황, 기분을 입력하면<br />
               셀러에서 가장 잘 어울리는 와인을 추천해드려요
             </p>
+            {aiSettings && (
+              <p className="text-xs text-gray-400 mt-3">
+                추천 모델: {aiSettings.recommendation.provider} / {aiSettings.recommendation.model}
+              </p>
+            )}
           </div>
         )}
       </div>

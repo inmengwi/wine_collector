@@ -1,10 +1,10 @@
-"""Gemini vision provider implementation."""
+"""Gemini provider implementations."""
 
 from __future__ import annotations
 
 import google.generativeai as genai
 
-from .base import VisionProvider
+from .base import TextProvider, VisionProvider
 
 
 class GeminiVisionProvider(VisionProvider):
@@ -42,6 +42,27 @@ class GeminiVisionProvider(VisionProvider):
                 prompt,
                 image_part,
             ],
+            generation_config={"max_output_tokens": max_tokens},
+        )
+        return response.text or ""
+
+
+class GeminiTextProvider(TextProvider):
+    """Text provider backed by Google's Gemini models."""
+
+    name = "gemini"
+
+    def __init__(self, api_key: str, model: str) -> None:
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel(model)
+
+    async def generate_text(
+        self,
+        prompt: str,
+        max_tokens: int,
+    ) -> str:
+        response = self.model.generate_content(
+            prompt,
             generation_config={"max_output_tokens": max_tokens},
         )
         return response.text or ""

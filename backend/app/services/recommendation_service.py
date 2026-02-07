@@ -163,7 +163,7 @@ class RecommendationService:
             query_text=query,
             result=ai_result,
             recommended_wine_ids=recommended_wine_ids,
-            ai_model="claude-sonnet-4-20250514",
+            ai_model=f"{self.ai_service.get_recommendation_model_info()['provider']}/{self.ai_service.get_recommendation_model_info()['model']}",
         )
         self.db.add(recommendation_record)
         await self.db.commit()

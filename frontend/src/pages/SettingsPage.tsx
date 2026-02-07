@@ -9,12 +9,14 @@ import {
   ChevronRightIcon,
   PlusIcon,
   XMarkIcon,
+  CpuChipIcon,
 } from '@heroicons/react/24/outline';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '../components/layout';
 import { Button, Modal, TagChip, ConfirmDialog } from '../components/common';
 import { useAuthStore } from '../stores';
-import { tagService } from '../services';
+import { tagService, aiSettingsService } from '../services';
+import type { AISettingsResponse } from '../services/aiSettingsService';
 import type { Tag, TagType, TagCreateRequest } from '../types';
 
 interface TagFormData {
@@ -32,6 +34,7 @@ export function SettingsPage() {
   const { user, logout } = useAuthStore();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
+  const [showAISettingsModal, setShowAISettingsModal] = useState(false);
   const [showCreateTagModal, setShowCreateTagModal] = useState(false);
   const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
   const [tagFormData, setTagFormData] = useState<TagFormData>({
@@ -53,6 +56,11 @@ export function SettingsPage() {
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
     queryFn: () => tagService.getTags(),
+  });
+
+  const { data: aiSettings } = useQuery({
+    queryKey: ['ai-settings'],
+    queryFn: () => aiSettingsService.getSettings(),
   });
 
   const createTagMutation = useMutation({
@@ -105,6 +113,11 @@ export function SettingsPage() {
       badge: tagsData?.summary ?
         `${tagsData.summary.cellar_count + tagsData.summary.location_count + tagsData.summary.custom_count}개` :
         undefined,
+    },
+    {
+      icon: CpuChipIcon,
+      label: 'AI 모델 설정',
+      onClick: () => setShowAISettingsModal(true),
     },
     {
       icon: BellIcon,
@@ -181,6 +194,79 @@ export function SettingsPage() {
           로그아웃
         </Button>
       </div>
+
+      {/* AI Settings Modal */}
+      <Modal
+        isOpen={showAISettingsModal}
+        onClose={() => setShowAISettingsModal(false)}
+        title="AI 모델 설정"
+      >
+        <div className="space-y-5 mt-4">
+          <p className="text-sm text-gray-500">
+            와인 스캔과 추천에 각각 다른 AI 모델을 사용하여 정확도와 비용을 최적화할 수 있습니다.
+            서버 환경변수에서 설정을 변경할 수 있습니다.
+          </p>
+
+          {aiSettings ? (
+            <>
+              {/* Scan Model */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                  와인 스캔 (Vision)
+                </h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  라벨 이미지를 분석하여 와인 정보를 추출합니다. 이미지 인식 능력이 뛰어난 모델이 유리합니다.
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                    {aiSettings.scan.provider}
+                  </span>
+                  <span className="text-sm text-gray-700 font-mono">
+                    {aiSettings.scan.model}
+                  </span>
+                </div>
+              </div>
+
+              {/* Recommendation Model */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                  와인 추천 (Text)
+                </h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  소믈리에처럼 와인을 추천합니다. 추론 능력이 뛰어난 모델이 유리합니다.
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
+                    {aiSettings.recommendation.provider}
+                  </span>
+                  <span className="text-sm text-gray-700 font-mono">
+                    {aiSettings.recommendation.model}
+                  </span>
+                </div>
+              </div>
+
+              {/* Env variable guide */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="text-xs font-semibold text-gray-700 mb-2">환경변수 설정 가이드</h4>
+                <div className="space-y-1 text-xs text-gray-500 font-mono">
+                  <p>SCAN_AI_PROVIDER=gemini</p>
+                  <p>SCAN_AI_MODEL=gemini-2.5-flash</p>
+                  <p>RECOMMENDATION_AI_PROVIDER=anthropic</p>
+                  <p>RECOMMENDATION_AI_MODEL=claude-sonnet-4-20250514</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-4 text-sm text-gray-400">
+              AI 설정을 불러오는 중...
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => setShowAISettingsModal(false)}>닫기</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Tag Management Modal */}
       <Modal

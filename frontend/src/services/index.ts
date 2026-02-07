@@ -5,3 +5,4 @@ export { scanService } from './scanService';
 export { recommendationService } from './recommendationService';
 export { tagService } from './tagService';
 export { dashboardService } from './dashboardService';
+export { aiSettingsService } from './aiSettingsService';

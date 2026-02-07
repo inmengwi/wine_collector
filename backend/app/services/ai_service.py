@@ -4,41 +4,67 @@ import json
 import logging
 from decimal import Decimal
 
-import anthropic
-
 from app.config import settings
-from app.services.ai.providers import AnthropicVisionProvider, GeminiVisionProvider, VisionProvider
+from app.services.ai.providers import (
+    AnthropicTextProvider,
+    AnthropicVisionProvider,
+    GeminiTextProvider,
+    GeminiVisionProvider,
+    TextProvider,
+    VisionProvider,
+)
 
 
 class AIService:
-    """Service for AI-powered wine analysis using Claude."""
+    """Service for AI-powered wine analysis and recommendations.
+
+    Supports separate AI providers/models for scanning (vision) and
+    recommendation (text) tasks, allowing cost/accuracy optimization
+    per use case.
+    """
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.provider = self._select_provider()
-        self.client = None
-        self.model = None
-        if settings.ai_provider.lower() == "anthropic" and settings.anthropic_api_key:
-            self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-            self.model = "claude-sonnet-4-20250514"
+        self.scan_provider = self._create_vision_provider(
+            settings.effective_scan_provider,
+            settings.effective_scan_model,
+        )
+        self.recommendation_provider = self._create_text_provider(
+            settings.effective_recommendation_provider,
+            settings.effective_recommendation_model,
+        )
+        self.logger.info(
+            "AI service initialized: scan=%s/%s, recommendation=%s/%s",
+            settings.effective_scan_provider,
+            settings.effective_scan_model,
+            settings.effective_recommendation_provider,
+            settings.effective_recommendation_model,
+        )
 
-    def _select_provider(self) -> VisionProvider | None:
-        provider_name = settings.ai_provider.lower()
+    def _create_vision_provider(self, provider_name: str, model: str) -> VisionProvider | None:
+        provider_name = provider_name.lower()
         if provider_name == "gemini":
             if not settings.gemini_api_key:
                 return None
-            return GeminiVisionProvider(
-                api_key=settings.gemini_api_key,
-                model=settings.gemini_model,
-            )
+            return GeminiVisionProvider(api_key=settings.gemini_api_key, model=model)
         if provider_name == "anthropic":
             if not settings.anthropic_api_key:
                 return None
-            return AnthropicVisionProvider(
-                api_key=settings.anthropic_api_key,
-                model="claude-sonnet-4-20250514",
-            )
-        self.logger.warning("Unknown AI provider '%s'", settings.ai_provider)
+            return AnthropicVisionProvider(api_key=settings.anthropic_api_key, model=model)
+        self.logger.warning("Unknown vision provider '%s'", provider_name)
+        return None
+
+    def _create_text_provider(self, provider_name: str, model: str) -> TextProvider | None:
+        provider_name = provider_name.lower()
+        if provider_name == "gemini":
+            if not settings.gemini_api_key:
+                return None
+            return GeminiTextProvider(api_key=settings.gemini_api_key, model=model)
+        if provider_name == "anthropic":
+            if not settings.anthropic_api_key:
+                return None
+            return AnthropicTextProvider(api_key=settings.anthropic_api_key, model=model)
+        self.logger.warning("Unknown text provider '%s'", provider_name)
         return None
 
     def _parse_json_object(self, response_text: str) -> dict | None:
@@ -67,14 +93,28 @@ class AIService:
             self.logger.error("AI response JSON parse failed: invalid array.")
             return []
 
+    def get_scan_model_info(self) -> dict:
+        """Return current scan model provider and model name."""
+        return {
+            "provider": settings.effective_scan_provider,
+            "model": settings.effective_scan_model,
+        }
+
+    def get_recommendation_model_info(self) -> dict:
+        """Return current recommendation model provider and model name."""
+        return {
+            "provider": settings.effective_recommendation_provider,
+            "model": settings.effective_recommendation_model,
+        }
+
     async def analyze_wine_label(self, image_content: bytes) -> dict | None:
         """Analyze a wine label image and extract information."""
-        if not self.provider:
-            self.logger.warning("AI provider is not configured; skipping analysis.")
+        if not self.scan_provider:
+            self.logger.warning("Scan AI provider is not configured; skipping analysis.")
             return None
 
         try:
-            response_text = await self.provider.generate_content(
+            response_text = await self.scan_provider.generate_content(
                 image_content=image_content,
                 prompt="""Analyze this wine label image and extract the following information in JSON format:
 
@@ -120,12 +160,12 @@ Only include fields you can determine from the label or your knowledge. Return o
 
     async def analyze_batch_wine_labels(self, image_content: bytes) -> list[dict]:
         """Analyze multiple wine labels in a single image."""
-        if not self.provider:
-            self.logger.warning("AI provider is not configured; skipping batch analysis.")
+        if not self.scan_provider:
+            self.logger.warning("Scan AI provider is not configured; skipping batch analysis.")
             return []
 
         try:
-            response_text = await self.provider.generate_content(
+            response_text = await self.scan_provider.generate_content(
                 image_content=image_content,
                 prompt="""Analyze this image containing multiple wine bottles. For each visible wine label, extract information.
 
@@ -164,19 +204,13 @@ Return only valid JSON array.""",
         wines: list[dict],
     ) -> dict:
         """Get wine pairing recommendations using AI."""
-        if not self.client or not self.model:
+        if not self.recommendation_provider:
             return self._get_mock_recommendations(wines)
 
         try:
             wines_json = json.dumps(wines, ensure_ascii=False, default=str)
 
-            message = self.client.messages.create(
-                model=self.model,
-                max_tokens=2000,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"""You are a sommelier. A user wants wine recommendations.
+            prompt = f"""You are a sommelier. A user wants wine recommendations.
 
 User's request: "{query}"
 
@@ -203,21 +237,16 @@ Consider:
 2. Drinking window (prioritize wines that should be drunk soon)
 3. Wine characteristics matching the occasion
 
-Return only valid JSON.""",
-                    }
-                ],
+Return only valid JSON."""
+
+            response_text = await self.recommendation_provider.generate_text(
+                prompt=prompt,
+                max_tokens=2000,
             )
 
-            response_text = message.content[0].text
-
-            try:
-                json_start = response_text.find("{")
-                json_end = response_text.rfind("}") + 1
-                if json_start != -1 and json_end > json_start:
-                    json_str = response_text[json_start:json_end]
-                    return json.loads(json_str)
-            except json.JSONDecodeError:
-                pass
+            parsed = self._parse_json_object(response_text)
+            if parsed:
+                return parsed
 
             return {"recommendations": [], "general_advice": None}
 
@@ -228,8 +257,8 @@ Return only valid JSON.""",
     def _get_mock_wine_data(self) -> dict:
         """Return mock wine data for development."""
         return {
-            "name": "Château Margaux",
-            "producer": "Château Margaux",
+            "name": "Chateau Margaux",
+            "producer": "Chateau Margaux",
             "vintage": 2015,
             "grape_variety": ["Cabernet Sauvignon", "Merlot", "Petit Verdot"],
             "region": "Margaux",
