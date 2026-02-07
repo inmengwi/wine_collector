@@ -14,6 +14,7 @@ from app.schemas.scan import (
     ScanResponse,
     BatchScanResponse,
     DuplicateCheckResponse,
+    EnrichResponse,
     ScannedWineInfo,
     ScanResultItem,
     ScanRefineResponse,
@@ -131,15 +132,8 @@ class ScanService:
         for idx, wine_info in enumerate(wines_info):
             if wine_info.get("status") == "success":
                 success_count += 1
-                # Build taste profile if any taste fields are present
-                taste_profile = None
-                if any(wine_info.get(k) for k in ("body", "tannin", "acidity", "sweetness")):
-                    taste_profile = TasteProfile(
-                        body=wine_info.get("body"),
-                        tannin=wine_info.get("tannin"),
-                        acidity=wine_info.get("acidity"),
-                        sweetness=wine_info.get("sweetness"),
-                    )
+                # Batch scan returns core identification fields only.
+                # Detailed fields (taste, pairing, etc.) are filled via enrich.
                 results.append(
                     ScanResultItem(
                         index=idx,
@@ -155,14 +149,6 @@ class ScanService:
                             appellation=wine_info.get("appellation"),
                             abv=wine_info.get("abv"),
                             type=wine_info.get("type", "red"),
-                            taste_profile=taste_profile,
-                            food_pairing=wine_info.get("food_pairing"),
-                            flavor_notes=wine_info.get("flavor_notes"),
-                            serving_temp_min=wine_info.get("serving_temp_min"),
-                            serving_temp_max=wine_info.get("serving_temp_max"),
-                            drinking_window_start=wine_info.get("drinking_window_start"),
-                            drinking_window_end=wine_info.get("drinking_window_end"),
-                            description=wine_info.get("description"),
                         ),
                         bounding_box=wine_info.get("bounding_box"),
                     )
@@ -184,6 +170,51 @@ class ScanService:
             successfully_recognized=success_count,
             failed=failed_count,
             wines=results,
+        )
+
+    async def enrich_wine(self, wine_info: dict) -> EnrichResponse | None:
+        """Enrich a batch-scanned wine with detailed tasting information.
+
+        Called when the user selects a wine from batch results to add
+        to their collection. Uses a lightweight text-only AI call.
+        """
+        detail = await self.ai_service.enrich_wine_detail(wine_info)
+        if not detail:
+            return None
+
+        # Merge enriched detail on top of the original core info
+        merged = dict(wine_info)
+        merged.update({k: v for k, v in detail.items() if v is not None})
+
+        taste_profile = None
+        if any(merged.get(k) for k in ("body", "tannin", "acidity", "sweetness")):
+            taste_profile = TasteProfile(
+                body=merged.get("body"),
+                tannin=merged.get("tannin"),
+                acidity=merged.get("acidity"),
+                sweetness=merged.get("sweetness"),
+            )
+
+        return EnrichResponse(
+            wine=ScannedWineInfo(
+                name=merged["name"],
+                producer=merged.get("producer"),
+                vintage=merged.get("vintage"),
+                grape_variety=merged.get("grape_variety"),
+                region=merged.get("region"),
+                country=merged.get("country"),
+                appellation=merged.get("appellation"),
+                abv=merged.get("abv"),
+                type=merged.get("type", "red"),
+                taste_profile=taste_profile,
+                food_pairing=merged.get("food_pairing"),
+                flavor_notes=merged.get("flavor_notes"),
+                serving_temp_min=merged.get("serving_temp_min"),
+                serving_temp_max=merged.get("serving_temp_max"),
+                drinking_window_start=merged.get("drinking_window_start"),
+                drinking_window_end=merged.get("drinking_window_end"),
+                description=merged.get("description"),
+            ),
         )
 
     async def check_duplicate(

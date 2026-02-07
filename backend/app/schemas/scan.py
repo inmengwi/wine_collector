@@ -79,6 +79,22 @@ class BatchScanResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class EnrichRequest(BaseModel):
+    """Request to enrich a batch-scanned wine with detailed info."""
+
+    wine: ScannedWineInfo
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EnrichResponse(BaseModel):
+    """Enriched wine response with detailed tasting and pairing info."""
+
+    wine: ScannedWineInfo
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class DuplicateCheckResponse(BaseModel):
     """Duplicate check scan response."""
 

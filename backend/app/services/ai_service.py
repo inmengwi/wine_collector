@@ -232,6 +232,65 @@ class AIService:
             self.logger.exception("Batch AI analysis error: %s", e)
             return []
 
+    async def enrich_wine_detail(self, wine_info: dict) -> dict | None:
+        """Enrich a batch-scanned wine with detailed tasting and pairing information.
+
+        Takes the core identification fields from the batch scan and uses
+        the text provider to generate taste profile, food pairing, flavor
+        notes, serving temperature, drinking window, and description.
+        """
+        provider = self.recommendation_provider or self.scan_provider
+        if not provider:
+            self.logger.warning("No AI provider available for enrichment.")
+            return None
+
+        wine_summary = ", ".join(
+            f"{k}: {v}" for k, v in wine_info.items()
+            if v is not None and k not in ("status", "bounding_box", "confidence")
+        )
+
+        prompt = f"""You are a sommelier. Given the following wine identification, provide detailed tasting and pairing information.
+
+Wine: {wine_summary}
+
+Return JSON with ONLY these fields:
+{{
+  "body": 4,
+  "tannin": 4,
+  "acidity": 3,
+  "sweetness": 1,
+  "food_pairing": ["Grilled steak", "Lamb", "Aged cheese"],
+  "flavor_notes": ["Blackcurrant", "Cedar", "Tobacco"],
+  "serving_temp_min": 16,
+  "serving_temp_max": 18,
+  "drinking_window_start": 2025,
+  "drinking_window_end": 2040,
+  "description": "Brief description of the wine's character"
+}}
+
+- "body/tannin/acidity/sweetness": 1-5 scale
+- Base your assessment on the grape variety, region, vintage, and appellation
+- Return ONLY valid JSON"""
+
+        try:
+            if hasattr(provider, 'generate_text'):
+                response_text = await provider.generate_text(
+                    prompt=prompt,
+                    max_tokens=800,
+                )
+            else:
+                # Fallback: use vision provider with empty image won't work,
+                # so use text-based approach via recommendation provider
+                self.logger.warning("No text provider for enrichment; skipping.")
+                return None
+
+            self.logger.debug("Enrich AI raw response: %s", response_text)
+            return self._parse_json_object(response_text)
+
+        except Exception as e:
+            self.logger.exception("Wine enrichment error: %s", e)
+            return None
+
     async def get_pairing_recommendations(
         self,
         query: str,

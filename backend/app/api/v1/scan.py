@@ -7,6 +7,8 @@ from app.schemas.common import ResponseModel
 from app.schemas.scan import (
     BatchScanResponse,
     DuplicateCheckResponse,
+    EnrichRequest,
+    EnrichResponse,
     ScanRefineResponse,
     ScanResponse,
 )
@@ -77,6 +79,32 @@ async def scan_wines_batch(
         image_content=content,
         filename=image.filename or "batch_scan.jpg",
     )
+
+    return ResponseModel(data=result)
+
+
+@router.post("/enrich", response_model=ResponseModel[EnrichResponse])
+async def enrich_wine(
+    current_user: CurrentUser,
+    db: DbSession,
+    body: EnrichRequest,
+):
+    """Enrich a batch-scanned wine with detailed tasting and pairing information.
+
+    Called when the user selects a wine from batch scan results to add
+    to their collection. Uses a lightweight text-only AI call to fill in
+    taste profile, food pairing, flavor notes, and other detail fields.
+    """
+    wine_dict = body.wine.model_dump(exclude_none=True)
+
+    service = ScanService(db)
+    result = await service.enrich_wine(wine_info=wine_dict)
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Could not enrich wine information. Please try again.",
+        )
 
     return ResponseModel(data=result)
 
