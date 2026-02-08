@@ -305,6 +305,96 @@ Return JSON with ONLY these fields:
             self.logger.exception("Wine enrichment error: %s", e)
             return None
 
+    async def analyze_wine_detail(
+        self,
+        wine_info: dict,
+        user_language: str | None = None,
+    ) -> dict | None:
+        """Perform an in-depth AI analysis of a wine.
+
+        Generates detailed tasting notes, aroma profile, vineyard/terroir
+        context, food pairing rationale, aging potential analysis, and
+        attempts to find a Vivino rating estimate.
+        """
+        provider = self.recommendation_provider or self.scan_provider
+        if not provider:
+            self.logger.warning("No AI provider available for wine analysis.")
+            return None
+
+        wine_summary = ", ".join(
+            f"{k}: {v}" for k, v in wine_info.items()
+            if v is not None and k not in ("id", "image_url", "ai_confidence", "created_at", "updated_at")
+        )
+
+        language_map = {
+            "ko": "Korean",
+            "en": "English",
+            "ja": "Japanese",
+            "zh": "Chinese",
+            "fr": "French",
+            "es": "Spanish",
+            "it": "Italian",
+            "de": "German",
+        }
+        lang_name = language_map.get(user_language, "Korean") if user_language else "Korean"
+
+        prompt = f"""You are a world-class sommelier and wine critic. Perform a comprehensive analysis of this wine.
+
+Wine information: {wine_summary}
+
+Return a JSON object with the following structure:
+{{
+  "summary": "A concise 1-2 sentence overall impression of this wine",
+  "aroma_profile": {{
+    "primary": ["list of primary aromas (fruit, floral)"],
+    "secondary": ["list of secondary aromas (fermentation-derived)"],
+    "tertiary": ["list of tertiary aromas (aging-derived, if applicable)"]
+  }},
+  "flavor_analysis": "Detailed description of the palate - attack, mid-palate, finish. Include texture, weight, tannin quality, acidity character.",
+  "terroir_context": "Brief explanation of the region/appellation and how it influences this wine's character",
+  "aging_potential": {{
+    "current_status": "young/developing/at_peak/declining",
+    "recommendation": "When to drink and how long it can age",
+    "peak_window": "e.g. 2026-2035"
+  }},
+  "food_pairing_detail": [
+    {{
+      "dish": "Specific dish name",
+      "reason": "Why this pairing works"
+    }}
+  ],
+  "sommelier_tip": "A practical tip for serving or enjoying this wine",
+  "vivino_rating": {{
+    "estimated_score": 4.2,
+    "confidence": "high/medium/low",
+    "note": "Brief note about the rating estimate basis"
+  }},
+  "comparable_wines": ["List 2-3 similar wines the user might also enjoy"]
+}}
+
+Important:
+- ALL text fields MUST be written in {lang_name}.
+- For vivino_rating, estimate based on your knowledge of this wine's critical reception, region prestige, and producer reputation. Score should be on 1.0-5.0 scale. If you are uncertain, set confidence to "low".
+- Be specific and informative, not generic.
+- Return ONLY valid JSON."""
+
+        try:
+            if hasattr(provider, 'generate_text'):
+                response_text = await provider.generate_text(
+                    prompt=prompt,
+                    max_tokens=2000,
+                )
+            else:
+                self.logger.warning("No text provider for wine analysis; skipping.")
+                return None
+
+            self.logger.debug("Wine analysis AI raw response: %s", response_text)
+            return self._parse_json_object(response_text)
+
+        except Exception as e:
+            self.logger.exception("Wine analysis error: %s", e)
+            return None
+
     async def get_pairing_recommendations(
         self,
         query: str,

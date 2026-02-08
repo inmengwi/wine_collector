@@ -203,6 +203,20 @@ class UserWineListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class WineAIAnalysisResponse(BaseModel):
+    """AI wine analysis response."""
+
+    summary: str
+    aroma_profile: dict | None = None
+    flavor_analysis: str | None = None
+    terroir_context: str | None = None
+    aging_potential: dict | None = None
+    food_pairing_detail: list[dict] | None = None
+    sommelier_tip: str | None = None
+    vivino_rating: dict | None = None
+    comparable_wines: list[str] | None = None
+
+
 class WineFilterParams(BaseModel):
     """Wine filter parameters."""
 

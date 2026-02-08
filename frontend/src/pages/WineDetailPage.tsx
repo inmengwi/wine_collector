@@ -9,6 +9,7 @@ import {
   GiftIcon,
   CheckIcon,
   Cog6ToothIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { Header } from '../components/layout';
 import {
@@ -31,7 +32,7 @@ import {
   getDrinkingStatusLabel,
   getDrinkingStatusColor,
 } from '../lib/utils';
-import type { UserWineUpdateRequest, Tag } from '../types';
+import type { UserWineUpdateRequest, Tag, WineAIAnalysis } from '../types';
 
 interface EditFormData {
   purchase_date: string;
@@ -59,6 +60,8 @@ export function WineDetailPage() {
     personal_note: '',
     tag_ids: [],
   });
+  const [aiAnalysis, setAiAnalysis] = useState<WineAIAnalysis | null>(null);
+  const [showAiAnalysis, setShowAiAnalysis] = useState(false);
 
   const invalidateWineQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
@@ -121,6 +124,14 @@ export function WineDetailPage() {
     onSuccess: () => {
       invalidateWineQueries();
       setShowEditModal(false);
+    },
+  });
+
+  const aiAnalysisMutation = useMutation({
+    mutationFn: () => wineService.analyzeWine(id!),
+    onSuccess: (data) => {
+      setAiAnalysis(data);
+      setShowAiAnalysis(true);
     },
   });
 
@@ -364,6 +375,204 @@ export function WineDetailPage() {
                   <Badge key={idx} variant="wine">{note}</Badge>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* AI Analysis Button */}
+          <div className="bg-gradient-to-r from-purple-50 to-wine-50 rounded-xl p-4">
+            <button
+              onClick={() => {
+                if (aiAnalysis) {
+                  setShowAiAnalysis(!showAiAnalysis);
+                } else {
+                  aiAnalysisMutation.mutate();
+                }
+              }}
+              disabled={aiAnalysisMutation.isPending}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-purple-600 to-wine-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-wine-700 transition-all disabled:opacity-60"
+            >
+              {aiAnalysisMutation.isPending ? (
+                <>
+                  <Loading size="sm" />
+                  <span>AI 분석 중...</span>
+                </>
+              ) : (
+                <>
+                  <SparklesIcon className="h-5 w-5" />
+                  <span>{aiAnalysis ? (showAiAnalysis ? 'AI 분석 숨기기' : 'AI 분석 보기') : 'AI 와인 분석'}</span>
+                </>
+              )}
+            </button>
+            {aiAnalysisMutation.isError && (
+              <p className="mt-2 text-sm text-red-600 text-center">
+                분석에 실패했습니다. 다시 시도해주세요.
+              </p>
+            )}
+          </div>
+
+          {/* AI Analysis Results */}
+          {aiAnalysis && showAiAnalysis && (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="bg-gradient-to-br from-purple-50 to-white rounded-xl p-4 border border-purple-100">
+                <h2 className="text-sm font-medium text-purple-700 mb-2 flex items-center gap-1.5">
+                  <SparklesIcon className="h-4 w-4" />
+                  AI 소믈리에 요약
+                </h2>
+                <p className="text-gray-800 leading-relaxed">{aiAnalysis.summary}</p>
+              </div>
+
+              {/* Vivino Rating */}
+              {aiAnalysis.vivino_rating && (
+                <div className="bg-white rounded-xl p-4 border border-wine-100">
+                  <h2 className="text-sm font-medium text-gray-500 mb-3">Vivino 예상 평점</h2>
+                  <div className="flex items-center gap-4">
+                    <div className="text-3xl font-bold text-wine-700">
+                      {aiAnalysis.vivino_rating.estimated_score.toFixed(1)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1 mb-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <div
+                            key={star}
+                            className={`h-4 w-4 rounded-full ${
+                              star <= Math.round(aiAnalysis.vivino_rating!.estimated_score)
+                                ? 'bg-wine-500'
+                                : 'bg-gray-200'
+                            }`}
+                          />
+                        ))}
+                        <Badge
+                          variant={
+                            aiAnalysis.vivino_rating.confidence === 'high' ? 'success'
+                            : aiAnalysis.vivino_rating.confidence === 'medium' ? 'warning'
+                            : 'default'
+                          }
+                        >
+                          {aiAnalysis.vivino_rating.confidence === 'high' ? '신뢰도 높음'
+                           : aiAnalysis.vivino_rating.confidence === 'medium' ? '신뢰도 중간'
+                           : '신뢰도 낮음'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-500">{aiAnalysis.vivino_rating.note}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Aroma Profile */}
+              {aiAnalysis.aroma_profile && (
+                <div className="bg-white rounded-xl p-4">
+                  <h2 className="text-sm font-medium text-gray-500 mb-3">아로마 프로필</h2>
+                  <div className="space-y-3">
+                    {aiAnalysis.aroma_profile.primary?.length > 0 && (
+                      <div>
+                        <span className="text-xs font-medium text-gray-400 uppercase">1차 아로마</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {aiAnalysis.aroma_profile.primary.map((aroma, i) => (
+                            <Badge key={i} variant="wine">{aroma}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {aiAnalysis.aroma_profile.secondary?.length > 0 && (
+                      <div>
+                        <span className="text-xs font-medium text-gray-400 uppercase">2차 아로마</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {aiAnalysis.aroma_profile.secondary.map((aroma, i) => (
+                            <Badge key={i} variant="default">{aroma}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {aiAnalysis.aroma_profile.tertiary?.length > 0 && (
+                      <div>
+                        <span className="text-xs font-medium text-gray-400 uppercase">3차 아로마</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {aiAnalysis.aroma_profile.tertiary.map((aroma, i) => (
+                            <Badge key={i} variant="default">{aroma}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Flavor Analysis */}
+              {aiAnalysis.flavor_analysis && (
+                <div className="bg-white rounded-xl p-4">
+                  <h2 className="text-sm font-medium text-gray-500 mb-2">맛 분석</h2>
+                  <p className="text-gray-700 text-sm leading-relaxed">{aiAnalysis.flavor_analysis}</p>
+                </div>
+              )}
+
+              {/* Terroir Context */}
+              {aiAnalysis.terroir_context && (
+                <div className="bg-white rounded-xl p-4">
+                  <h2 className="text-sm font-medium text-gray-500 mb-2">테루아 & 산지</h2>
+                  <p className="text-gray-700 text-sm leading-relaxed">{aiAnalysis.terroir_context}</p>
+                </div>
+              )}
+
+              {/* Aging Potential */}
+              {aiAnalysis.aging_potential && (
+                <div className="bg-white rounded-xl p-4">
+                  <h2 className="text-sm font-medium text-gray-500 mb-3">숙성 잠재력</h2>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-gray-600">현재 상태</dt>
+                      <dd className="text-gray-900 font-medium">{aiAnalysis.aging_potential.current_status}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-gray-600">최적 음용 시기</dt>
+                      <dd className="text-gray-900 font-medium">{aiAnalysis.aging_potential.peak_window}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-600 mb-1">추천</dt>
+                      <dd className="text-gray-700">{aiAnalysis.aging_potential.recommendation}</dd>
+                    </div>
+                  </dl>
+                </div>
+              )}
+
+              {/* Food Pairing Detail */}
+              {aiAnalysis.food_pairing_detail && aiAnalysis.food_pairing_detail.length > 0 && (
+                <div className="bg-white rounded-xl p-4">
+                  <h2 className="text-sm font-medium text-gray-500 mb-3">추천 페어링</h2>
+                  <ul className="space-y-3">
+                    {aiAnalysis.food_pairing_detail.map((pairing, i) => (
+                      <li key={i} className="border-l-2 border-wine-300 pl-3">
+                        <p className="font-medium text-gray-900 text-sm">{pairing.dish}</p>
+                        <p className="text-gray-500 text-xs mt-0.5">{pairing.reason}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Sommelier Tip */}
+              {aiAnalysis.sommelier_tip && (
+                <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+                  <h2 className="text-sm font-medium text-amber-700 mb-2">소믈리에 팁</h2>
+                  <p className="text-gray-700 text-sm leading-relaxed">{aiAnalysis.sommelier_tip}</p>
+                </div>
+              )}
+
+              {/* Comparable Wines */}
+              {aiAnalysis.comparable_wines && aiAnalysis.comparable_wines.length > 0 && (
+                <div className="bg-white rounded-xl p-4">
+                  <h2 className="text-sm font-medium text-gray-500 mb-3">비슷한 와인 추천</h2>
+                  <ul className="space-y-2">
+                    {aiAnalysis.comparable_wines.map((wine, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-wine-400" />
+                        {wine}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

@@ -10,6 +10,7 @@ import type {
   WineStatusUpdateRequest,
   WineQuantityUpdateRequest,
   WineFilterParams,
+  WineAIAnalysis,
 } from '@/types';
 
 export interface WineListParams extends PaginationParams, SortParams, WineFilterParams {
@@ -95,5 +96,10 @@ export const wineService = {
 
   async deleteUserWine(id: string): Promise<void> {
     return this.deleteWine(id);
+  },
+
+  async analyzeWine(id: string): Promise<WineAIAnalysis> {
+    const response = await api.post(`/wines/${id}/analyze`);
+    return response.data.data;
   },
 };

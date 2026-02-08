@@ -210,6 +210,42 @@ export interface RecommendationRequest {
   };
 }
 
+// AI Analysis types
+export interface WineAromaProfile {
+  primary: string[];
+  secondary: string[];
+  tertiary: string[];
+}
+
+export interface WineAgingPotential {
+  current_status: string;
+  recommendation: string;
+  peak_window: string;
+}
+
+export interface WineFoodPairingDetail {
+  dish: string;
+  reason: string;
+}
+
+export interface WineVivinoRating {
+  estimated_score: number;
+  confidence: string;
+  note: string;
+}
+
+export interface WineAIAnalysis {
+  summary: string;
+  aroma_profile: WineAromaProfile | null;
+  flavor_analysis: string | null;
+  terroir_context: string | null;
+  aging_potential: WineAgingPotential | null;
+  food_pairing_detail: WineFoodPairingDetail[] | null;
+  sommelier_tip: string | null;
+  vivino_rating: WineVivinoRating | null;
+  comparable_wines: string[] | null;
+}
+
 // Dashboard types
 export interface CellarSummary {
   total_wines: number;
