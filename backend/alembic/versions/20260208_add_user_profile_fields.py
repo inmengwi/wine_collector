@@ -7,6 +7,7 @@ Create Date: 2026-02-08
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -16,17 +17,26 @@ branch_labels = None
 depends_on = None
 
 
+def column_exists(table_name: str, column_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    columns = [col["name"] for col in inspector.get_columns(table_name)]
+    return column_name in columns
+
+
 def upgrade() -> None:
-    op.add_column("users", sa.Column("birth_year", sa.Integer(), nullable=True))
-    op.add_column("users", sa.Column("language", sa.String(length=10), nullable=True))
-    op.add_column("users", sa.Column("nationality", sa.String(length=100), nullable=True))
-    op.add_column("users", sa.Column("gender", sa.String(length=20), nullable=True))
-    op.add_column("users", sa.Column("wine_preferences", sa.Text(), nullable=True))
+    for col_name, col_type in [
+        ("birth_year", sa.Integer()),
+        ("language", sa.String(length=10)),
+        ("nationality", sa.String(length=100)),
+        ("gender", sa.String(length=20)),
+        ("wine_preferences", sa.Text()),
+    ]:
+        if not column_exists("users", col_name):
+            op.add_column("users", sa.Column(col_name, col_type, nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("users", "wine_preferences")
-    op.drop_column("users", "gender")
-    op.drop_column("users", "nationality")
-    op.drop_column("users", "language")
-    op.drop_column("users", "birth_year")
+    for col_name in ["wine_preferences", "gender", "nationality", "language", "birth_year"]:
+        if column_exists("users", col_name):
+            op.drop_column("users", col_name)
