@@ -8,6 +8,7 @@ import {
   WineDetailPage,
   RecommendPage,
   SettingsPage,
+  ProfileSettingsPage,
   LoginPage,
   RegisterPage,
 } from './pages';
@@ -124,6 +125,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/profile"
+        element={
+          <ProtectedRoute>
+            <ProfileSettingsPage />
           </ProtectedRoute>
         }
       />

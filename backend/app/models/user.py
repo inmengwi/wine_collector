@@ -31,6 +31,13 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     profile_image: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # Profile settings
+    birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    nationality: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    wine_preferences: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     next_label_sequence: Mapped[int] = mapped_column(Integer, default=1)
