@@ -16,7 +16,6 @@ import { Header } from '../components/layout';
 import { Button, Modal, TagChip, ConfirmDialog } from '../components/common';
 import { useAuthStore } from '../stores';
 import { tagService, aiSettingsService } from '../services';
-import type { AISettingsResponse } from '../services/aiSettingsService';
 import type { Tag, TagType, TagCreateRequest } from '../types';
 
 interface TagFormData {
