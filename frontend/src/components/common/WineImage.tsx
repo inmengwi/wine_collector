@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { Component, useState } from 'react';
+import type { ReactNode, ErrorInfo } from 'react';
 import { clsx } from 'clsx';
 import { WineBottleIllustration } from './WineBottleIllustration';
 import { WineColorCard } from './WineColorCard';
@@ -29,6 +30,46 @@ const illustrationBg: Record<WineType, string> = {
   fortified: 'from-amber-50 to-orange-50',
   other: 'from-gray-50 to-gray-100',
 };
+
+/** ErrorBoundary that falls back to WineColorCard (3rd priority) */
+interface IllustrationBoundaryProps {
+  type: WineType;
+  size: 'sm' | 'md' | 'lg' | 'xl';
+  className?: string;
+  children: ReactNode;
+}
+
+interface IllustrationBoundaryState {
+  hasError: boolean;
+}
+
+class IllustrationBoundary extends Component<IllustrationBoundaryProps, IllustrationBoundaryState> {
+  constructor(props: IllustrationBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): IllustrationBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(_error: Error, _info: ErrorInfo) {
+    // Silently fall through to color card
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <WineColorCard
+          type={this.props.type}
+          size={this.props.size}
+          className={this.props.className}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /**
  * WineImage - Unified wine image component with 3-tier fallback:
@@ -75,30 +116,33 @@ export function WineImage({
     );
   }
 
-  // Priority 2: SVG bottle illustration
+  // Priority 2: SVG bottle illustration (wrapped in ErrorBoundary -> Priority 3: Color card)
   const illustrationSize = isHero ? 'xl' : size;
   const bgGradient = illustrationBg[type] || illustrationBg.other;
-
-  if (isHero) {
-    return (
-      <div className={clsx('relative bg-gradient-to-b', bgGradient, className)}>
-        <div className="w-full h-full flex items-center justify-center py-4">
-          <WineBottleIllustration type={type} size={illustrationSize} />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={clsx(
+  const containerClass = isHero
+    ? clsx('relative bg-gradient-to-b', bgGradient, className)
+    : clsx(
         'overflow-hidden rounded bg-gradient-to-b flex items-center justify-center',
         bgGradient,
         containerSizes[size],
         className
-      )}
+      );
+
+  return (
+    <IllustrationBoundary
+      type={type}
+      size={isHero ? 'xl' : size}
+      className={isHero ? clsx('w-full h-64', className) : clsx(containerSizes[size], className)}
     >
-      <WineBottleIllustration type={type} size={size} />
-    </div>
+      <div className={containerClass}>
+        {isHero ? (
+          <div className="w-full h-full flex items-center justify-center py-4">
+            <WineBottleIllustration type={type} size={illustrationSize} />
+          </div>
+        ) : (
+          <WineBottleIllustration type={type} size={size} />
+        )}
+      </div>
+    </IllustrationBoundary>
   );
 }
