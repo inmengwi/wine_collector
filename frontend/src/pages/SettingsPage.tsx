@@ -15,7 +15,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '../components/layout';
 import { Button, Modal, TagChip, ConfirmDialog } from '../components/common';
 import { useAuthStore } from '../stores';
-import { tagService, aiSettingsService } from '../services';
+import { tagService, aiSettingsService, authService } from '../services';
 import type { Tag, TagType, TagCreateRequest } from '../types';
 
 interface TagFormData {
@@ -95,6 +95,12 @@ export function SettingsPage() {
   };
 
   const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } catch {
+      // Proceed with client-side logout even if server logout fails
+    }
+    queryClient.clear();
     await logout();
     navigate('/login', { replace: true });
   };
