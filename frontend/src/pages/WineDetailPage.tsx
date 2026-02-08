@@ -134,7 +134,7 @@ export function WineDetailPage() {
   });
 
   const aiAnalysisMutation = useMutation({
-    mutationFn: (refresh?: boolean) => wineService.analyzeWine(id!, refresh),
+    mutationFn: (refresh: boolean | void) => wineService.analyzeWine(id!, refresh || undefined),
     onSuccess: (data) => {
       setAiAnalysis(data);
       invalidateWineQueries();
