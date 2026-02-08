@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { WineTypeIcon, Badge, TagChip } from '../common';
+import { WineImage, Badge, TagChip } from '../common';
 import { formatVintage, formatPrice, getDrinkingStatusLabel, getDrinkingStatusColor } from '../../lib/utils';
 import type { UserWineListItem } from '../../types';
 
@@ -22,18 +22,13 @@ export function WineCard({ wine, showPrice = false }: WineCardProps) {
     >
       <div className="flex gap-3 p-3">
         {/* Wine Image */}
-        <div className="flex-shrink-0 w-16 h-20 bg-gray-100 rounded overflow-hidden">
-          {wine.wine.image_url ? (
-            <img
-              src={wine.wine.image_url}
-              alt={wine.wine.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <WineTypeIcon type={wine.wine.type} size="lg" />
-            </div>
-          )}
+        <div className="flex-shrink-0">
+          <WineImage
+            imageUrl={wine.wine.image_url}
+            type={wine.wine.type}
+            name={wine.wine.name}
+            size="md"
+          />
         </div>
 
         {/* Wine Info */}

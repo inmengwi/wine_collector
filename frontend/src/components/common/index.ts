@@ -8,3 +8,6 @@ export { Loading } from './Loading';
 export { EmptyState } from './EmptyState';
 export { Badge } from './Badge';
 export { ConfirmDialog } from './ConfirmDialog';
+export { WineBottleIllustration } from './WineBottleIllustration';
+export { WineColorCard } from './WineColorCard';
+export { WineImage } from './WineImage';
