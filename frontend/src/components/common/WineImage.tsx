@@ -1,4 +1,4 @@
-import { Component, useState } from 'react';
+import { Component, useState, useEffect, useRef } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { clsx } from 'clsx';
 import { WineBottleIllustration } from './WineBottleIllustration';
@@ -12,6 +12,81 @@ interface WineImageProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   variant?: 'card' | 'hero';
+}
+
+/**
+ * In-memory image cache.
+ * Stores successfully loaded URLs as blob object URLs to avoid re-fetching.
+ * Also tracks failed URLs to skip retrying broken images.
+ */
+const imageCache = new Map<string, string>();
+const failedUrls = new Set<string>();
+const MAX_CACHE_SIZE = 200;
+
+function evictOldest() {
+  if (imageCache.size > MAX_CACHE_SIZE) {
+    const firstKey = imageCache.keys().next().value;
+    if (firstKey) {
+      const blobUrl = imageCache.get(firstKey);
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      imageCache.delete(firstKey);
+    }
+  }
+}
+
+function useCachedImage(url: string | null | undefined) {
+  const [state, setState] = useState<'loading' | 'loaded' | 'error'>(() => {
+    if (!url) return 'error';
+    if (failedUrls.has(url)) return 'error';
+    if (imageCache.has(url)) return 'loaded';
+    return 'loading';
+  });
+  const [cachedSrc, setCachedSrc] = useState<string | null>(() =>
+    url && imageCache.has(url) ? imageCache.get(url)! : null
+  );
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!url || failedUrls.has(url)) {
+      setState('error');
+      setCachedSrc(null);
+      return;
+    }
+
+    if (imageCache.has(url)) {
+      setState('loaded');
+      setCachedSrc(imageCache.get(url)!);
+      return;
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    fetch(url, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        evictOldest();
+        imageCache.set(url, objectUrl);
+        setState('loaded');
+        setCachedSrc(objectUrl);
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          failedUrls.add(url);
+          setState('error');
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [url]);
+
+  return { state, cachedSrc };
 }
 
 const containerSizes = {
@@ -85,20 +160,19 @@ export function WineImage({
   className,
   variant = 'card',
 }: WineImageProps) {
-  const [imageError, setImageError] = useState(false);
+  const { state: imgState, cachedSrc } = useCachedImage(imageUrl);
 
   const isHero = variant === 'hero';
 
-  // Priority 1: User photo
-  if (imageUrl && !imageError) {
+  // Priority 1: User photo (cached)
+  if (imgState === 'loaded' && cachedSrc) {
     if (isHero) {
       return (
         <div className={clsx('relative bg-gradient-to-b from-wine-100 to-white', className)}>
           <img
-            src={imageUrl}
+            src={cachedSrc}
             alt={name || 'Wine'}
             className="w-full h-full object-contain"
-            onError={() => setImageError(true)}
           />
         </div>
       );
@@ -107,12 +181,27 @@ export function WineImage({
     return (
       <div className={clsx('overflow-hidden rounded bg-gray-100', containerSizes[size], className)}>
         <img
-          src={imageUrl}
+          src={cachedSrc}
           alt={name || 'Wine'}
           className="w-full h-full object-cover"
-          onError={() => setImageError(true)}
         />
       </div>
+    );
+  }
+
+  // Show loading placeholder while fetching
+  if (imgState === 'loading' && imageUrl) {
+    const bgGradient = illustrationBg[type] || illustrationBg.other;
+    return (
+      <div
+        className={clsx(
+          'overflow-hidden rounded bg-gradient-to-b flex items-center justify-center animate-pulse',
+          bgGradient,
+          isHero ? undefined : containerSizes[size],
+          isHero ? 'h-64' : undefined,
+          className
+        )}
+      />
     );
   }
 

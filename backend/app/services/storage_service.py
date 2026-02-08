@@ -54,12 +54,14 @@ class StorageService:
         # Generate key
         key = f"scans/{scan_id}{ext or '.jpg'}"
 
-        # Upload to R2
+        # Upload to R2 with cache headers
+        cache_max_age = settings.r2_cache_max_age
         self.client.put_object(
             Bucket=settings.r2_bucket_name,
             Key=key,
             Body=content,
             ContentType=content_type,
+            CacheControl=f"public, max-age={cache_max_age}, immutable",
         )
 
         # Return public URL
@@ -85,6 +87,7 @@ class StorageService:
             Key=key,
             Body=content,
             ContentType=content_type,
+            CacheControl=f"public, max-age={settings.r2_cache_max_age}, immutable",
         )
 
         return f"{settings.r2_public_url}/{key}"
