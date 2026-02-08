@@ -95,13 +95,14 @@ class Settings(BaseSettings):
             return self.gemini_model
         return "claude-sonnet-4-20250514"
 
-    # Storage
+    # Storage (Cloudflare R2)
     storage_type: str = "r2"
     r2_account_id: str = ""
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
     r2_bucket_name: str = "wine-collector"
     r2_public_url: str = ""
+    r2_cache_max_age: int = 604800  # 7 days in seconds
 
     # CORS
     cors_origins: List[str] = [
