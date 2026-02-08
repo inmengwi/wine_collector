@@ -61,7 +61,6 @@ export function WineDetailPage() {
     tag_ids: [],
   });
   const [aiAnalysis, setAiAnalysis] = useState<WineAIAnalysis | null>(null);
-  const [showAiAnalysis, setShowAiAnalysis] = useState(false);
 
   const invalidateWineQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['user-wine', id] });
@@ -87,7 +86,6 @@ export function WineDetailPage() {
   useEffect(() => {
     if (userWine?.wine.ai_analysis) {
       setAiAnalysis(userWine.wine.ai_analysis);
-      setShowAiAnalysis(true);
     }
   }, [userWine?.wine.ai_analysis]);
 
@@ -139,7 +137,6 @@ export function WineDetailPage() {
     mutationFn: (refresh?: boolean) => wineService.analyzeWine(id!, refresh),
     onSuccess: (data) => {
       setAiAnalysis(data);
-      setShowAiAnalysis(true);
       invalidateWineQueries();
     },
   });
@@ -387,19 +384,13 @@ export function WineDetailPage() {
             </div>
           )}
 
-          {/* AI Analysis Button */}
-          <div className="bg-gradient-to-r from-purple-50 to-wine-50 rounded-xl p-4">
-            <div className="flex gap-2">
+          {/* AI Analysis Button - only show when no cached analysis */}
+          {!aiAnalysis && (
+            <div className="bg-gradient-to-r from-purple-50 to-wine-50 rounded-xl p-4">
               <button
-                onClick={() => {
-                  if (aiAnalysis) {
-                    setShowAiAnalysis(!showAiAnalysis);
-                  } else {
-                    aiAnalysisMutation.mutate();
-                  }
-                }}
+                onClick={() => aiAnalysisMutation.mutate()}
                 disabled={aiAnalysisMutation.isPending}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-purple-600 to-wine-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-wine-700 transition-all disabled:opacity-60"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-purple-600 to-wine-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-wine-700 transition-all disabled:opacity-60"
               >
                 {aiAnalysisMutation.isPending ? (
                   <>
@@ -409,29 +400,20 @@ export function WineDetailPage() {
                 ) : (
                   <>
                     <SparklesIcon className="h-5 w-5" />
-                    <span>{aiAnalysis ? (showAiAnalysis ? 'AI 분석 숨기기' : 'AI 분석 보기') : 'AI 와인 분석'}</span>
+                    <span>AI 와인 분석</span>
                   </>
                 )}
               </button>
-              {aiAnalysis && (
-                <button
-                  onClick={() => aiAnalysisMutation.mutate(true)}
-                  disabled={aiAnalysisMutation.isPending}
-                  className="py-3 px-4 border border-purple-300 text-purple-700 rounded-lg font-medium hover:bg-purple-50 transition-all disabled:opacity-60 text-sm"
-                >
-                  재분석
-                </button>
+              {aiAnalysisMutation.isError && (
+                <p className="mt-2 text-sm text-red-600 text-center">
+                  분석에 실패했습니다. 다시 시도해주세요.
+                </p>
               )}
             </div>
-            {aiAnalysisMutation.isError && (
-              <p className="mt-2 text-sm text-red-600 text-center">
-                분석에 실패했습니다. 다시 시도해주세요.
-              </p>
-            )}
-          </div>
+          )}
 
           {/* AI Analysis Results */}
-          {aiAnalysis && showAiAnalysis && (
+          {aiAnalysis && (
             <div className="space-y-4">
               {/* Summary */}
               <div className="bg-gradient-to-br from-purple-50 to-white rounded-xl p-4 border border-purple-100">
@@ -593,6 +575,27 @@ export function WineDetailPage() {
                   </ul>
                 </div>
               )}
+
+              {/* Re-analyze Button */}
+              <div className="flex justify-center">
+                <button
+                  onClick={() => aiAnalysisMutation.mutate(true)}
+                  disabled={aiAnalysisMutation.isPending}
+                  className="flex items-center gap-1.5 py-2 px-4 text-sm text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-all disabled:opacity-60"
+                >
+                  {aiAnalysisMutation.isPending ? (
+                    <>
+                      <Loading size="sm" />
+                      <span>재분석 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <SparklesIcon className="h-4 w-4" />
+                      <span>AI 재분석</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
 
