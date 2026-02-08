@@ -4,5 +4,6 @@ export { CellarPage } from './CellarPage';
 export { WineDetailPage } from './WineDetailPage';
 export { RecommendPage } from './RecommendPage';
 export { SettingsPage } from './SettingsPage';
+export { ProfileSettingsPage } from './ProfileSettingsPage';
 export { LoginPage } from './LoginPage';
 export { RegisterPage } from './RegisterPage';

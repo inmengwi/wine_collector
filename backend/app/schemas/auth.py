@@ -30,6 +30,11 @@ class UserResponse(BaseModel):
     name: str
     profile_image: str | None = None
     is_verified: bool = False
+    birth_year: int | None = None
+    language: str | None = None
+    nationality: str | None = None
+    gender: str | None = None
+    wine_preferences: str | None = None
     created_at: datetime
     last_login_at: datetime | None = None
 
@@ -71,6 +76,11 @@ class UserUpdate(BaseModel):
 
     name: str | None = Field(None, min_length=2, max_length=100)
     profile_image: str | None = None
+    birth_year: int | None = Field(None, ge=1900, le=2025)
+    language: str | None = Field(None, max_length=10)
+    nationality: str | None = Field(None, max_length=100)
+    gender: str | None = Field(None, max_length=20)
+    wine_preferences: str | None = Field(None, max_length=500)
 
 
 class SocialLoginRequest(BaseModel):

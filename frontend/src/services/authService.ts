@@ -1,5 +1,5 @@
 import api from './api';
-import type { LoginRequest, RegisterRequest, LoginResponse, User, TokenResponse } from '@/types';
+import type { LoginRequest, RegisterRequest, LoginResponse, User, TokenResponse, ProfileUpdateRequest } from '@/types';
 
 export const authService = {
   async register(data: RegisterRequest): Promise<LoginResponse> {
@@ -26,7 +26,7 @@ export const authService = {
     return response.data.data;
   },
 
-  async updateProfile(data: { name?: string; profile_image?: string }): Promise<User> {
+  async updateProfile(data: ProfileUpdateRequest): Promise<User> {
     const response = await api.patch('/auth/me', data);
     return response.data.data;
   },

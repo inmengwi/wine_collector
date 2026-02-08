@@ -6,8 +6,23 @@ export interface User {
   name: string;
   profile_image: string | null;
   is_verified: boolean;
+  birth_year: number | null;
+  language: string | null;
+  nationality: string | null;
+  gender: string | null;
+  wine_preferences: string | null;
   created_at: string;
   last_login_at: string | null;
+}
+
+export interface ProfileUpdateRequest {
+  name?: string;
+  profile_image?: string;
+  birth_year?: number | null;
+  language?: string | null;
+  nationality?: string | null;
+  gender?: string | null;
+  wine_preferences?: string | null;
 }
 
 export interface LoginRequest {
