@@ -78,9 +78,10 @@ class RecommendationService:
         query_type: str,
         normalized_query: str,
         wine_collection_hash: str,
+        user_language: str | None = None,
     ) -> str:
         """Build the final cache key hash."""
-        raw = f"{user_id}:{query_type}:{normalized_query}:{wine_collection_hash}"
+        raw = f"{user_id}:{query_type}:{normalized_query}:{wine_collection_hash}:{user_language or ''}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
     async def _lookup_cache(self, cache_key: str) -> RecommendationCache | None:
@@ -135,6 +136,7 @@ class RecommendationService:
         query: str,
         query_type: str = "food",
         preferences: RecommendationPreferences | None = None,
+        user_language: str | None = None,
     ) -> RecommendationResponse:
         """Get wine pairing recommendations based on user query."""
         # Get user's available wines
@@ -174,7 +176,7 @@ class RecommendationService:
         # Build cache key
         normalized_query = self._normalize_query(query)
         wine_collection_hash = self._build_wine_collection_hash(user_wines, wine_types_filter)
-        cache_key = self._build_cache_key(user_id, query_type, normalized_query, wine_collection_hash)
+        cache_key = self._build_cache_key(user_id, query_type, normalized_query, wine_collection_hash, user_language)
 
         # Check cache
         cached = await self._lookup_cache(cache_key)
@@ -206,7 +208,7 @@ class RecommendationService:
                 })
 
             # Get AI recommendations
-            ai_result = await self.ai_service.get_pairing_recommendations(query, wines_data)
+            ai_result = await self.ai_service.get_pairing_recommendations(query, wines_data, user_language=user_language)
             is_cached = False
 
             ai_recs = ai_result.get("recommendations", [])

@@ -27,6 +27,7 @@ async def get_recommendations(
         query=request.query,
         query_type=request.query_type,
         preferences=request.preferences,
+        user_language=current_user.language,
     )
 
     return ResponseModel(data=result)
