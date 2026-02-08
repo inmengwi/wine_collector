@@ -228,8 +228,12 @@ async def analyze_wine(
     user_wine_id: UUID,
     current_user: CurrentUser,
     db: DbSession,
+    refresh: bool = Query(False, description="Force re-analysis ignoring cache"),
 ):
-    """Perform AI analysis of a wine's characteristics, including estimated Vivino rating."""
+    """Perform AI analysis of a wine's characteristics, including estimated Vivino rating.
+
+    Results are cached in the database. Use refresh=true to force re-analysis.
+    """
     service = WineService(db)
     user_wine = await service.get_user_wine(current_user.id, user_wine_id)
 
@@ -240,6 +244,14 @@ async def analyze_wine(
         )
 
     wine = user_wine["wine"]
+
+    # Return cached analysis if available and refresh not requested
+    if wine.ai_analysis and not refresh:
+        return ResponseModel(
+            data=wine.ai_analysis,
+            message="Wine analysis loaded from cache",
+        )
+
     wine_info = {
         "name": wine.name,
         "producer": wine.producer,
@@ -266,6 +278,9 @@ async def analyze_wine(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="AI analysis failed. Please try again.",
         )
+
+    # Save analysis to database
+    await service.save_wine_ai_analysis(wine.id, result)
 
     return ResponseModel(
         data=result,

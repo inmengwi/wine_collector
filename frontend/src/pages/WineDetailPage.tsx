@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -83,6 +83,14 @@ export function WineDetailPage() {
     queryFn: () => tagService.getTags(),
   });
 
+  // Load cached AI analysis from wine data
+  useEffect(() => {
+    if (userWine?.wine.ai_analysis) {
+      setAiAnalysis(userWine.wine.ai_analysis);
+      setShowAiAnalysis(true);
+    }
+  }, [userWine?.wine.ai_analysis]);
+
   const updateQuantityMutation = useMutation({
     mutationFn: ({ action, amount }: { action: 'increase' | 'decrease'; amount: number }) =>
       wineService.updateWineQuantity(id!, { action, amount }),
@@ -128,10 +136,11 @@ export function WineDetailPage() {
   });
 
   const aiAnalysisMutation = useMutation({
-    mutationFn: () => wineService.analyzeWine(id!),
+    mutationFn: (refresh?: boolean) => wineService.analyzeWine(id!, refresh),
     onSuccess: (data) => {
       setAiAnalysis(data);
       setShowAiAnalysis(true);
+      invalidateWineQueries();
     },
   });
 
@@ -380,29 +389,40 @@ export function WineDetailPage() {
 
           {/* AI Analysis Button */}
           <div className="bg-gradient-to-r from-purple-50 to-wine-50 rounded-xl p-4">
-            <button
-              onClick={() => {
-                if (aiAnalysis) {
-                  setShowAiAnalysis(!showAiAnalysis);
-                } else {
-                  aiAnalysisMutation.mutate();
-                }
-              }}
-              disabled={aiAnalysisMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-purple-600 to-wine-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-wine-700 transition-all disabled:opacity-60"
-            >
-              {aiAnalysisMutation.isPending ? (
-                <>
-                  <Loading size="sm" />
-                  <span>AI 분석 중...</span>
-                </>
-              ) : (
-                <>
-                  <SparklesIcon className="h-5 w-5" />
-                  <span>{aiAnalysis ? (showAiAnalysis ? 'AI 분석 숨기기' : 'AI 분석 보기') : 'AI 와인 분석'}</span>
-                </>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (aiAnalysis) {
+                    setShowAiAnalysis(!showAiAnalysis);
+                  } else {
+                    aiAnalysisMutation.mutate();
+                  }
+                }}
+                disabled={aiAnalysisMutation.isPending}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-purple-600 to-wine-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-wine-700 transition-all disabled:opacity-60"
+              >
+                {aiAnalysisMutation.isPending ? (
+                  <>
+                    <Loading size="sm" />
+                    <span>AI 분석 중...</span>
+                  </>
+                ) : (
+                  <>
+                    <SparklesIcon className="h-5 w-5" />
+                    <span>{aiAnalysis ? (showAiAnalysis ? 'AI 분석 숨기기' : 'AI 분석 보기') : 'AI 와인 분석'}</span>
+                  </>
+                )}
+              </button>
+              {aiAnalysis && (
+                <button
+                  onClick={() => aiAnalysisMutation.mutate(true)}
+                  disabled={aiAnalysisMutation.isPending}
+                  className="py-3 px-4 border border-purple-300 text-purple-700 rounded-lg font-medium hover:bg-purple-50 transition-all disabled:opacity-60 text-sm"
+                >
+                  재분석
+                </button>
               )}
-            </button>
+            </div>
             {aiAnalysisMutation.isError && (
               <p className="mt-2 text-sm text-red-600 text-center">
                 분석에 실패했습니다. 다시 시도해주세요.

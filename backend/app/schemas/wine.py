@@ -48,6 +48,7 @@ class WineResponse(WineBase):
     description: str | None = None
     image_url: str | None = None
     ai_confidence: Decimal | None = None
+    ai_analysis: dict | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -80,6 +81,7 @@ class WineResponse(WineBase):
             "description": wine.description,
             "image_url": wine.image_url,
             "ai_confidence": wine.ai_confidence,
+            "ai_analysis": wine.ai_analysis,
         }
         return cls(**data)
 

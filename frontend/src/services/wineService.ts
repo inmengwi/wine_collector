@@ -98,8 +98,10 @@ export const wineService = {
     return this.deleteWine(id);
   },
 
-  async analyzeWine(id: string): Promise<WineAIAnalysis> {
-    const response = await api.post(`/wines/${id}/analyze`);
+  async analyzeWine(id: string, refresh?: boolean): Promise<WineAIAnalysis> {
+    const response = await api.post(`/wines/${id}/analyze`, null, {
+      params: refresh ? { refresh: true } : undefined,
+    });
     return response.data.data;
   },
 };
