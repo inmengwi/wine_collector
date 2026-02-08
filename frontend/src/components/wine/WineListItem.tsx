@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
-import { WineTypeIcon, Badge } from '../common';
+import { WineImage, Badge } from '../common';
 import { formatVintage, getDrinkingStatusLabel, getDrinkingStatusColor } from '../../lib/utils';
 import type { UserWineListItem } from '../../types';
 
@@ -18,9 +18,14 @@ export function WineListItem({ wine, onClick }: WineListItemProps) {
 
   const content = (
     <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors">
-      {/* Wine Type Icon */}
-      <div className="flex-shrink-0 w-10 h-10 bg-wine-50 rounded-full flex items-center justify-center">
-        <WineTypeIcon type={wine.wine.type} size="sm" />
+      {/* Wine Image */}
+      <div className="flex-shrink-0">
+        <WineImage
+          imageUrl={wine.wine.image_url}
+          type={wine.wine.type}
+          name={wine.wine.name}
+          size="sm"
+        />
       </div>
 
       {/* Wine Info */}

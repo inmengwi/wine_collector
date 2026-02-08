@@ -21,7 +21,7 @@ import {
   TasteProfile,
   TagChip,
   ConfirmDialog,
-  WineTypeIcon,
+  WineImage,
 } from '../components/common';
 import { wineService, tagService } from '../services';
 import {
@@ -229,19 +229,13 @@ export function WineDetailPage() {
       />
 
       {/* Hero Image */}
-      <div className="relative h-64 bg-gradient-to-b from-wine-100 to-white">
-        {wine.image_url ? (
-          <img
-            src={wine.image_url}
-            alt={wine.name}
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <WineTypeIcon type={wine.type} size="lg" className="h-24 w-24 text-wine-300" />
-          </div>
-        )}
-      </div>
+      <WineImage
+        imageUrl={wine.image_url}
+        type={wine.type}
+        name={wine.name}
+        variant="hero"
+        className="h-64"
+      />
 
       {/* Wine Info */}
       <div className="px-4 -mt-4 relative">
