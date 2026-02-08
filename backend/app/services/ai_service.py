@@ -309,6 +309,7 @@ Return JSON with ONLY these fields:
         self,
         query: str,
         wines: list[dict],
+        user_language: str | None = None,
     ) -> dict:
         """Get wine pairing recommendations using AI."""
         if not self.recommendation_provider:
@@ -316,6 +317,19 @@ Return JSON with ONLY these fields:
 
         try:
             wines_json = json.dumps(wines, ensure_ascii=False, default=str)
+
+            language_map = {
+                "ko": "Korean",
+                "en": "English",
+                "ja": "Japanese",
+                "zh": "Chinese",
+                "fr": "French",
+                "es": "Spanish",
+                "it": "Italian",
+                "de": "German",
+            }
+            lang_name = language_map.get(user_language, "") if user_language else ""
+            language_instruction = f"\n\nIMPORTANT: All text fields (reason, pairing_tips, general_advice) MUST be written in {lang_name}." if lang_name else ""
 
             prompt = f"""You are a sommelier. A user wants wine recommendations.
 
@@ -342,7 +356,7 @@ Recommend the best matching wines from their collection. Return JSON:
 Consider:
 1. Food pairing compatibility
 2. Drinking window (prioritize wines that should be drunk soon)
-3. Wine characteristics matching the occasion
+3. Wine characteristics matching the occasion{language_instruction}
 
 Return only valid JSON."""
 
