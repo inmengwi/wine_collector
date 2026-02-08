@@ -1,5 +1,5 @@
 import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
-import { WineTypeIcon, Badge } from '../common';
+import { WineImage, Badge } from '../common';
 import { getWineTypeLabel, formatVintage } from '../../lib/utils';
 import type { ScanResult } from '../../types';
 
@@ -17,15 +17,17 @@ export function ScanResultCard({ result, onConfirm, onEdit, onRetry }: ScanResul
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
       {/* Image Preview */}
-      <div className="relative h-48 bg-gray-100">
-        <img
-          src={result.image_url}
-          alt="Scanned wine"
-          className="w-full h-full object-contain"
+      <div className="relative h-48">
+        <WineImage
+          imageUrl={result.image_url}
+          type={wine.type}
+          name={wine.name}
+          variant="hero"
+          className="h-48"
         />
 
         {/* Confidence Badge */}
-        <div className="absolute top-3 right-3">
+        <div className="absolute top-3 right-3 z-10">
           <Badge variant={confidence >= 0.8 ? 'success' : confidence >= 0.6 ? 'warning' : 'danger'}>
             {Math.round(confidence * 100)}% 일치
           </Badge>
@@ -33,7 +35,7 @@ export function ScanResultCard({ result, onConfirm, onEdit, onRetry }: ScanResul
 
         {/* Duplicate Warning */}
         {is_duplicate && (
-          <div className="absolute bottom-0 left-0 right-0 bg-yellow-500/90 text-white px-4 py-2 flex items-center gap-2">
+          <div className="absolute bottom-0 left-0 right-0 z-10 bg-yellow-500/90 text-white px-4 py-2 flex items-center gap-2">
             <ExclamationTriangleIcon className="h-5 w-5" />
             <span className="text-sm font-medium">이미 보유 중인 와인입니다</span>
           </div>
@@ -43,8 +45,8 @@ export function ScanResultCard({ result, onConfirm, onEdit, onRetry }: ScanResul
       {/* Wine Info */}
       <div className="p-4">
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-12 h-12 bg-wine-50 rounded-full flex items-center justify-center">
-            <WineTypeIcon type={wine.type} size="md" />
+          <div className="flex-shrink-0">
+            <WineImage type={wine.type} size="sm" />
           </div>
 
           <div className="flex-1 min-w-0">
