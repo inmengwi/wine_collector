@@ -32,11 +32,12 @@ export const scanService = {
     return this.scanSingle(imageFile);
   },
 
-  async scanBatch(imageFile: File): Promise<BatchScanResult> {
+  async scanBatch(imageFile: File, signal?: AbortSignal): Promise<BatchScanResult> {
     const formData = new FormData();
     formData.append('image', imageFile);
 
     const response = await api.post('/scan/batch', formData, {
+      signal,
       headers: {
         'Content-Type': 'multipart/form-data',
       },
