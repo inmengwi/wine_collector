@@ -34,6 +34,7 @@ export interface Wine {
   description: string | null;
   image_url: string | null;
   ai_confidence: number | null;
+  ai_analysis: WineAIAnalysis | null;
 }
 
 export interface Tag {

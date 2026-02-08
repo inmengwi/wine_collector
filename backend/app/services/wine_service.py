@@ -449,3 +449,13 @@ class WineService:
         await self.db.commit()
 
         return True
+
+    async def save_wine_ai_analysis(self, wine_id: UUID, analysis: dict) -> None:
+        """Save AI analysis result to the wine record."""
+        result = await self.db.execute(
+            select(Wine).where(Wine.id == wine_id)
+        )
+        wine = result.scalar_one_or_none()
+        if wine:
+            wine.ai_analysis = analysis
+            await self.db.commit()

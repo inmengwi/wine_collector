@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, Integer, Numeric, SmallInteger, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -67,6 +67,9 @@ class Wine(Base):
     drinking_window_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
     drinking_window_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # AI analysis cache (full JSON result from AI wine analysis)
+    ai_analysis: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Metadata
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
