@@ -46,6 +46,10 @@ export function ScanPage() {
   const [singleWaitingError, setSingleWaitingError] = useState<string | null>(null);
   const [singleWaitingProgress, setSingleWaitingProgress] = useState(0);
   const singleScanAbortRef = useRef<AbortController | null>(null);
+  const [batchWaitingActive, setBatchWaitingActive] = useState(false);
+  const [batchWaitingError, setBatchWaitingError] = useState<string | null>(null);
+  const [batchWaitingProgress, setBatchWaitingProgress] = useState(0);
+  const batchScanAbortRef = useRef<AbortController | null>(null);
 
   const {
     mode: scanMode,
@@ -76,7 +80,9 @@ export function ScanPage() {
       const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' });
 
       if (scanMode === 'batch') {
-        return scanService.scanBatch(file);
+        const controller = new AbortController();
+        batchScanAbortRef.current = controller;
+        return scanService.scanBatch(file, controller.signal);
       }
 
       if (scanMode === 'single') {
@@ -90,6 +96,10 @@ export function ScanPage() {
     onSuccess: (result) => {
       if (scanMode === 'batch') {
         setBatchResult(result as BatchScanResult);
+        setBatchWaitingActive(false);
+        setBatchWaitingError(null);
+        setBatchWaitingProgress(100);
+        batchScanAbortRef.current = null;
       } else if (scanMode === 'continuous') {
         addContinuousResult(result as ScanResult);
         setContinuousSessionActive(true);
@@ -114,10 +124,18 @@ export function ScanPage() {
           setSingleWaitingError('분석에 실패했습니다. 다시 촬영하거나 종료해주세요.');
           setSingleWaitingProgress(0);
         }
+      } else if (scanMode === 'batch') {
+        if (isCanceled) {
+          resetBatchWaitingState();
+        } else {
+          setBatchWaitingError('분석에 실패했습니다. 다시 촬영하거나 종료해주세요.');
+          setBatchWaitingProgress(0);
+        }
       } else if (!isCanceled) {
         alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
       }
       singleScanAbortRef.current = null;
+      batchScanAbortRef.current = null;
       setScanning(false);
     },
   });
@@ -188,15 +206,54 @@ export function ScanPage() {
     return () => clearInterval(timer);
   }, [singleWaitingActive, singleWaitingError]);
 
+  useEffect(() => {
+    if (!batchWaitingActive || batchWaitingError) return;
+
+    const timer = setInterval(() => {
+      setBatchWaitingProgress((prev) => {
+        if (prev >= 90) return 90;
+        return Math.min(prev + Math.random() * 3 + 1, 90);
+      });
+    }, 350);
+
+    return () => clearInterval(timer);
+  }, [batchWaitingActive, batchWaitingError]);
+
+  const resetBatchWaitingState = () => {
+    setBatchWaitingActive(false);
+    setBatchWaitingError(null);
+    setBatchWaitingProgress(0);
+  };
+
   const resetSingleWaitingState = () => {
     setSingleWaitingActive(false);
     setSingleWaitingError(null);
     setSingleWaitingProgress(0);
   };
 
+  const handleBatchScanCancel = () => {
+    batchScanAbortRef.current?.abort();
+    batchScanAbortRef.current = null;
+    setScanning(false);
+    resetBatchWaitingState();
+  };
+
+  const handleBatchScanEnd = () => {
+    resetBatchWaitingState();
+  };
+
+  const handleBatchScanRetry = () => {
+    resetBatchWaitingState();
+    setShowCamera(true);
+  };
+
   const handleCapture = (imageData: string) => {
     if (scanMode === 'batch') {
       setBatchResult(null);
+      setBatchWaitingActive(true);
+      setBatchWaitingError(null);
+      setBatchWaitingProgress(0);
+      setShowCamera(false);
     }
     if (scanMode === 'single') {
       setScanResult(null);
@@ -315,8 +372,18 @@ export function ScanPage() {
     try {
       if (scanMode === 'batch') {
         setBatchResult(null);
-        const result = await scanService.scanBatch(file);
+        setBatchWaitingActive(true);
+        setBatchWaitingError(null);
+        setBatchWaitingProgress(0);
+        const controller = new AbortController();
+        batchScanAbortRef.current = controller;
+        const result = await scanService.scanBatch(file, controller.signal);
+        setBatchWaitingProgress(100);
         setBatchResult(result);
+        setBatchWaitingActive(false);
+        setBatchWaitingError(null);
+        batchScanAbortRef.current = null;
+        return;
       } else {
         setScanResult(null);
         if (scanMode === 'single') {
@@ -351,11 +418,19 @@ export function ScanPage() {
           setSingleWaitingError('분석에 실패했습니다. 다시 촬영하거나 종료해주세요.');
           setSingleWaitingProgress(0);
         }
+      } else if (scanMode === 'batch') {
+        if (isCanceled) {
+          resetBatchWaitingState();
+        } else {
+          setBatchWaitingError('분석에 실패했습니다. 다시 촬영하거나 종료해주세요.');
+          setBatchWaitingProgress(0);
+        }
       } else if (!isCanceled) {
         alert('와인 스캔에 실패했습니다. 다시 시도해주세요.');
       }
     } finally {
       singleScanAbortRef.current = null;
+      batchScanAbortRef.current = null;
       setScanning(false);
     }
   };
@@ -363,7 +438,10 @@ export function ScanPage() {
   const handleModeChange = (mode: ScanMode) => {
     singleScanAbortRef.current?.abort();
     singleScanAbortRef.current = null;
+    batchScanAbortRef.current?.abort();
+    batchScanAbortRef.current = null;
     resetSingleWaitingState();
+    resetBatchWaitingState();
     setScanMode(mode);
     setScanResult(null);
     setSelectedTagIds([]);
@@ -459,6 +537,60 @@ export function ScanPage() {
                     재촬영
                   </Button>
                   <Button variant="outline" className="w-full" onClick={handleSingleScanEnd}>
+                    촬영 종료
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (scanMode === 'batch' && batchWaitingActive) {
+    const hasBatchScanError = Boolean(batchWaitingError);
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header title="일괄 스캔 대기" showBack />
+        <div className="p-4">
+          <div className="bg-white rounded-xl p-5 shadow-sm text-center">
+            {!hasBatchScanError ? (
+              <>
+                <ArrowPathIcon className="h-5 w-5 mx-auto text-wine-600 animate-spin" />
+                <p className="mt-4 text-lg font-semibold text-gray-900">와인을 분석하고 있습니다...</p>
+                <p className="mt-2 text-sm font-medium text-wine-600">
+                  진행률 {Math.round(batchWaitingProgress)}%
+                </p>
+                <div className="mt-2 w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-wine-600 h-full transition-all duration-300"
+                    style={{ width: `${batchWaitingProgress}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-sm text-gray-600">
+                  여러 와인을 동시에 분석 중입니다. 취소하거나 분석이 끝날 때까지 기다려주세요.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-semibold text-red-600">와인 분석에 실패했습니다.</p>
+                <p className="mt-2 text-sm text-gray-600">{batchWaitingError}</p>
+              </>
+            )}
+
+            <div className="mt-5 space-y-2">
+              {!hasBatchScanError ? (
+                <Button variant="outline" className="w-full" onClick={handleBatchScanCancel}>
+                  분석 취소
+                </Button>
+              ) : (
+                <>
+                  <Button variant="primary" className="w-full" onClick={handleBatchScanRetry}>
+                    재촬영
+                  </Button>
+                  <Button variant="outline" className="w-full" onClick={handleBatchScanEnd}>
                     촬영 종료
                   </Button>
                 </>
@@ -631,6 +763,19 @@ export function ScanPage() {
             }}
           >
             다시 스캔하기
+          </Button>
+
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={() => {
+              setBatchResult(null);
+              setSelectedTagIds([]);
+              setSelectedBatchIndexes([]);
+            }}
+          >
+            추가하지 않고 종료
           </Button>
         </div>
       </div>
