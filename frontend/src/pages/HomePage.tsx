@@ -28,7 +28,7 @@ export function HomePage() {
 
   const { data: recentWines, isLoading: recentLoading } = useQuery({
     queryKey: ['recent-wines'],
-    queryFn: () => wineService.getUserWines({ size: 5, sort: 'created_at', order: 'desc' }),
+    queryFn: () => wineService.getUserWines({ size: 5, sort: 'created_at', order: 'desc', include_all_statuses: true }),
   });
 
   const isLoading = summaryLoading || expiringLoading || recentLoading;
