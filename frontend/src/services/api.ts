@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
+import { queryClient } from '@/queryClient';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const API_BASE_URL = `${API_URL}/api/v1`;
@@ -49,8 +50,9 @@ api.interceptors.response.use(
           return api(originalRequest);
         }
       } catch (refreshError) {
-        // Refresh failed - logout
+        // Refresh failed - logout and clear cached data
         useAuthStore.getState().logout();
+        queryClient.clear();
         window.location.href = `${import.meta.env.BASE_URL}login`;
         return Promise.reject(refreshError);
       }
