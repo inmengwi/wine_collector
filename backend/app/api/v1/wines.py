@@ -17,8 +17,10 @@ from app.schemas.wine import (
     UserWineListResponse,
     WineStatusUpdate,
     WineQuantityUpdate,
+    WineAIAnalysisResponse,
 )
 from app.services.wine_service import WineService
+from app.services.ai_service import AIService
 
 router = APIRouter()
 
@@ -219,3 +221,53 @@ async def delete_wine(
         )
 
     return ResponseModel(message="Wine deleted successfully")
+
+
+@router.post("/{user_wine_id}/analyze", response_model=ResponseModel[WineAIAnalysisResponse])
+async def analyze_wine(
+    user_wine_id: UUID,
+    current_user: CurrentUser,
+    db: DbSession,
+):
+    """Perform AI analysis of a wine's characteristics, including estimated Vivino rating."""
+    service = WineService(db)
+    user_wine = await service.get_user_wine(current_user.id, user_wine_id)
+
+    if not user_wine:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Wine not found",
+        )
+
+    wine = user_wine["wine"]
+    wine_info = {
+        "name": wine.name,
+        "producer": wine.producer,
+        "vintage": wine.vintage,
+        "grape_variety": wine.grape_variety,
+        "region": wine.region,
+        "country": wine.country,
+        "appellation": wine.appellation,
+        "abv": str(wine.abv) if wine.abv else None,
+        "type": wine.type,
+        "food_pairing": wine.food_pairing,
+        "flavor_notes": wine.flavor_notes,
+        "description": wine.description,
+    }
+
+    # Get user's language preference
+    user_language = current_user.language
+
+    ai_service = AIService()
+    result = await ai_service.analyze_wine_detail(wine_info, user_language)
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="AI analysis failed. Please try again.",
+        )
+
+    return ResponseModel(
+        data=result,
+        message="Wine analysis completed",
+    )
